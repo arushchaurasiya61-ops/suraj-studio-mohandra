@@ -1,0 +1,1 @@
+import {EventSearch} from '@/components/EventSearch';export default function Gallery(){return <main className="section"><div className="container" style={{maxWidth:760}}><h1>Client Gallery</h1><p className="muted">Search using event code, event name, bride, groom or client name.</p><EventSearch/></div></main>}

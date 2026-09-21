@@ -1,0 +1,1 @@
+import {BookingForm} from '@/components/BookingForm';export default function Booking(){return <main className="section"><div className="container" style={{maxWidth:760}}><h1>Book Your Event</h1><p className="muted">Send your event details. The request is stored for the studio admin.</p><BookingForm/></div></main>}

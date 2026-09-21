@@ -1,0 +1,35 @@
+{
+  "name": "suraj-studio-platform-v3",
+  "version": "3.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "framer-motion": "^12.23.12",
+    "googleapis": "^160.0.0",
+    "lucide-react": "^0.544.0",
+    "next": "^16.3.5",
+    "qrcode": "^1.5.4",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "sharp": "^0.34.3",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.13",
+    "@types/node": "^24.3.0",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "eslint": "^9.35.0",
+    "eslint-config-next": "^16.3.5",
+    "tailwindcss": "^4.1.13",
+    "typescript": "^5.9.2"
+  }
+}

@@ -1,0 +1,27 @@
+import { createClient } from '@supabase/supabase-js';
+
+function requireEnv(name: string) {
+  const value = process.env[name];
+  if (!value) throw new Error(`${name} is not configured.`);
+  return value;
+}
+
+export function authClient() {
+  return createClient(
+    requireEnv('NEXT_PUBLIC_SUPABASE_URL'),
+    requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+}
+
+let serviceClient: ReturnType<typeof createClient> | null = null;
+export function db() {
+  if (!serviceClient) {
+    serviceClient = createClient(
+      requireEnv('NEXT_PUBLIC_SUPABASE_URL'),
+      requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
+  }
+  return serviceClient;
+}

@@ -1,0 +1,1 @@
+import {AdminLogin} from '@/components/AdminLogin';export default function Login(){return <main className="section"><div className="container" style={{maxWidth:520}}><h1>Admin Login</h1><AdminLogin/></div></main>}

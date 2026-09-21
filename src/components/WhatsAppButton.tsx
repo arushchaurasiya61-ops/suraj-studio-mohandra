@@ -1,0 +1,1 @@
+export function WhatsAppButton(){const href='https://wa.me/919752579532?text='+encodeURIComponent('Hello Suraj Studio Mohandra, I want information about photography services.');return <a href={href} target="_blank" rel="noreferrer" aria-label="WhatsApp Suraj Studio" className="glass gold btn" style={{position:'fixed',right:18,bottom:18,zIndex:60}}>WhatsApp</a>}
