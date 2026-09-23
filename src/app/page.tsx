@@ -44,41 +44,45 @@ export default function Home() {
             src="/images/home/hero-main.jpg"
             alt="Suraj Studio Hero Background"
             style={{
+              position: "absolute",
+              inset: 0,
               width: "100%",
               height: "100%",
               objectFit: "cover",
               objectPosition: "center center",
               display: "block",
-              transform: "scale(1.06)",
-              filter: "blur(1px)",
-              opacity: 0.24,
+              transform: "scale(1.03)",
+              opacity: 0.68,
             }}
           />
 
+          {/* Dark overlay — keeps text readable while photo stays visible */}
           <div
             style={{
               position: "absolute",
               inset: 0,
               background:
-                "linear-gradient(180deg, rgba(0,0,0,0.80) 0%, rgba(0,0,0,0.58) 45%, rgba(0,0,0,0.84) 100%)",
+                "linear-gradient(180deg, rgba(0,0,0,0.34) 0%, rgba(0,0,0,0.24) 46%, rgba(0,0,0,0.52) 100%)",
             }}
           />
 
+          {/* Soft vignette for cinematic depth */}
           <div
             style={{
               position: "absolute",
               inset: 0,
               background:
-                "radial-gradient(circle at center, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.30) 72%, rgba(0,0,0,0.55) 100%)",
+                "radial-gradient(circle at center, rgba(0,0,0,0.00) 28%, rgba(0,0,0,0.14) 65%, rgba(0,0,0,0.38) 100%)",
             }}
           />
 
+          {/* Very subtle gold depth glow */}
           <div
             style={{
               position: "absolute",
               inset: 0,
               background:
-                "radial-gradient(circle at 22% 38%, rgba(212,175,55,0.12), transparent 28%), radial-gradient(circle at 80% 30%, rgba(244,214,117,0.07), transparent 24%)",
+                "radial-gradient(circle at 24% 42%, rgba(212,175,55,0.07), transparent 34%)",
             }}
           />
         </div>
