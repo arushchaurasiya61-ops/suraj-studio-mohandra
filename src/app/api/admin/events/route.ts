@@ -38,7 +38,7 @@ export async function GET() {
     const { data, error } = await db().from('events').select('*').order('created_at', { ascending: false }).limit(100);
     if (error) throw new Error(error.message);
     return NextResponse.json({
-      events: (data || []).map((e) => ({
+      events: (data || []).map((e: any) => ({
         id: e.id,
         eventCode: e.event_code,
         eventName: e.event_name,
@@ -55,6 +55,7 @@ export async function GET() {
         driveFolderId: e.drive_folder_id || '',
         driveFolderName: e.drive_folder_name || '',
         lastSyncedAt: e.last_synced_at,
+        
       })),
     });
   } catch {
