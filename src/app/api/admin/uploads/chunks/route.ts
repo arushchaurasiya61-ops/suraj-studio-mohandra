@@ -1,81 +1,55 @@
 import { NextResponse } from "next/server";
-
 import { requireAdmin } from "@/lib/admin-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_CHUNK_SIZE =
-  4 * 1024 * 1024;
+const MAX_CHUNK_SIZE = 4 * 1024 * 1024;
 
-function validateGoogleUploadUrl(
-  value: string
-) {
+function validateGoogleUploadUrl(value: string) {
   let url: URL;
 
   try {
     url = new URL(value);
   } catch {
-    throw new Error(
-      "Invalid upload URL."
-    );
+    throw new Error("Invalid upload URL.");
   }
 
   if (
     url.protocol !== "https:" ||
-    url.hostname !==
-      "www.googleapis.com" ||
-    url.pathname !==
-      "/upload/drive/v3/files"
+    url.hostname !== "www.googleapis.com" ||
+    url.pathname !== "/upload/drive/v3/files"
   ) {
-    throw new Error(
-      "Upload URL is not allowed."
-    );
+    throw new Error("Upload URL is not allowed.");
   }
 
   if (
-    url.searchParams.get(
-      "uploadType"
-    ) !== "resumable"
+    url.searchParams.get("uploadType") !== "resumable"
   ) {
-    throw new Error(
-      "Invalid resumable upload URL."
-    );
+    throw new Error("Invalid resumable upload URL.");
   }
 
   return url.toString();
 }
 
-export async function POST(
-  req: Request
-) {
+export async function POST(req: Request) {
   try {
     await requireAdmin();
 
     const uploadUrlHeader =
-      req.headers.get(
-        "x-upload-url"
-      );
+      req.headers.get("x-upload-url");
 
     const fileSizeHeader =
-      req.headers.get(
-        "x-file-size"
-      );
+      req.headers.get("x-file-size");
 
     const chunkStartHeader =
-      req.headers.get(
-        "x-chunk-start"
-      );
+      req.headers.get("x-chunk-start");
 
     const chunkEndHeader =
-      req.headers.get(
-        "x-chunk-end"
-      );
+      req.headers.get("x-chunk-end");
 
     const mimeType =
-      req.headers.get(
-        "x-mime-type"
-      ) ||
+      req.headers.get("x-mime-type") ||
       "application/octet-stream";
 
     if (
@@ -86,8 +60,7 @@ export async function POST(
     ) {
       return NextResponse.json(
         {
-          error:
-            "Missing upload headers.",
+          error: "Missing upload headers.",
         },
         {
           status: 400,
@@ -110,15 +83,9 @@ export async function POST(
       Number(chunkEndHeader);
 
     if (
-      !Number.isSafeInteger(
-        fileSize
-      ) ||
-      !Number.isSafeInteger(
-        chunkStart
-      ) ||
-      !Number.isSafeInteger(
-        chunkEnd
-      ) ||
+      !Number.isSafeInteger(fileSize) ||
+      !Number.isSafeInteger(chunkStart) ||
+      !Number.isSafeInteger(chunkEnd) ||
       fileSize <= 0 ||
       chunkStart < 0 ||
       chunkEnd < chunkStart ||
@@ -126,8 +93,7 @@ export async function POST(
     ) {
       return NextResponse.json(
         {
-          error:
-            "Invalid chunk range.",
+          error: "Invalid chunk range.",
         },
         {
           status: 400,
@@ -138,13 +104,10 @@ export async function POST(
     const buffer =
       await req.arrayBuffer();
 
-    if (
-      buffer.byteLength === 0
-    ) {
+    if (buffer.byteLength === 0) {
       return NextResponse.json(
         {
-          error:
-            "Empty upload chunk.",
+          error: "Empty upload chunk.",
         },
         {
           status: 400,
@@ -192,7 +155,6 @@ export async function POST(
         uploadUrl,
         {
           method: "PUT",
-
           headers: {
             "Content-Type":
               mimeType,
@@ -205,20 +167,16 @@ export async function POST(
             "Content-Range":
               `bytes ${chunkStart}-${chunkEnd}/${fileSize}`,
           },
-
           body: buffer,
         }
       );
 
-    // Google returns 308 while
-    // resumable upload is incomplete.
     if (
       googleResponse.status ===
       308
     ) {
       return NextResponse.json({
         complete: false,
-
         range:
           googleResponse.headers.get(
             "range"
@@ -226,17 +184,9 @@ export async function POST(
       });
     }
 
-    if (
-      !googleResponse.ok
-    ) {
+    if (!googleResponse.ok) {
       const text =
         await googleResponse.text();
-
-      console.error(
-        "Google Drive chunk error:",
-        googleResponse.status,
-        text
-      );
 
       return NextResponse.json(
         {
@@ -249,12 +199,10 @@ export async function POST(
       );
     }
 
-    let driveFile:
-      | Record<string, unknown>
-      | null = null;
-
     const text =
       await googleResponse.text();
+
+    let driveFile = null;
 
     if (text) {
       try {
