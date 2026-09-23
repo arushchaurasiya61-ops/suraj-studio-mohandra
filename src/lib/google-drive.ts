@@ -22,8 +22,10 @@ export function driveAuthUrl(
     prompt: "consent",
     include_granted_scopes: true,
     state,
+
+    // Upload/create files permission
     scope: [
-      "https://www.googleapis.com/auth/drive.readonly",
+      "https://www.googleapis.com/auth/drive.file",
     ],
   });
 }
@@ -51,9 +53,7 @@ export async function getDriveForAdmin(
         }
       | null;
 
-  if (
-    !connection?.refresh_token
-  ) {
+  if (!connection?.refresh_token) {
     throw new Error(
       "Google Drive is not connected."
     );
@@ -96,8 +96,10 @@ export async function listDriveFolders(
           "'",
           "\\'"
         )}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+
         fields:
           "nextPageToken,files(id,name)",
+
         orderBy: "name",
         pageSize: 1000,
         pageToken,
