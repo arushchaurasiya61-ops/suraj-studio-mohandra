@@ -20,116 +20,390 @@ const heroPhotos = [
 export default function Home() {
   return (
     <main>
-      {/* HERO */}
-      <section className="hero">
-        <div className="hero-content container">
-          <span className="glass pill">
-            BLACK • GOLD • CINEMATIC
-          </span>
-
-          <h1
+      {/* PREMIUM HERO */}
+      <section
+        className="hero"
+        style={{
+          position: "relative",
+          overflow: "hidden",
+          minHeight: "92vh",
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        {/* Background Depth Image */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 0,
+          }}
+        >
+          <img
+            src="/images/home/hero-main.jpg"
+            alt="Suraj Studio Hero"
             style={{
-              fontSize: "clamp(48px, 7vw, 100px)",
-              lineHeight: 0.95,
-              marginTop: 22,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+              transform: "scale(1.08)",
+              filter: "blur(1px)",
             }}
-          >
-            SURAJ PHOTOGRAPHY
-            <br />
-            & DESIGN STUDIO
-            <br />
-            <span className="gold-text">
-              MOHANDRA
-            </span>
-          </h1>
+          />
 
-          <p
-            className="muted"
-            style={{
-              fontSize: 19,
-              marginTop: 24,
-            }}
-          >
-            Wedding • Pre-Wedding • Cinematic Films • Photography
-          </p>
-
-          {/* MAIN ACTION BUTTONS */}
+          {/* Dark cinematic overlay */}
           <div
             style={{
-              display: "flex",
-              gap: 10,
-              justifyContent: "center",
-              flexWrap: "wrap",
-              marginTop: 28,
+              position: "absolute",
+              inset: 0,
+              background:
+                "linear-gradient(90deg, rgba(5,5,5,0.90) 0%, rgba(5,5,5,0.72) 38%, rgba(5,5,5,0.48) 65%, rgba(5,5,5,0.82) 100%)",
             }}
-          >
-            <Link
-              className="btn btn-primary"
-              href="/portfolio"
-            >
-              VIEW OUR WORK
-            </Link>
+          />
 
-            <Link
-              className="btn btn-ghost"
-              href="/booking"
-            >
-              BOOK YOUR EVENT
-            </Link>
+          {/* Bottom depth overlay */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "linear-gradient(to top, rgba(0,0,0,0.62), transparent 50%)",
+            }}
+          />
 
-            <a
-              className="btn btn-ghost"
-              href="https://wa.me/919752579532"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              WHATSAPP US
-            </a>
+          {/* Gold glow */}
+          <div
+            style={{
+              position: "absolute",
+              top: "10%",
+              left: "-5%",
+              width: 300,
+              height: 300,
+              borderRadius: "50%",
+              background: "rgba(212,175,55,0.12)",
+              filter: "blur(80px)",
+            }}
+          />
 
-            <Link
-              className="btn btn-ghost"
-              href="/gallery"
+          <div
+            style={{
+              position: "absolute",
+              right: "-5%",
+              bottom: "5%",
+              width: 300,
+              height: 300,
+              borderRadius: "50%",
+              background: "rgba(244,214,117,0.08)",
+              filter: "blur(90px)",
+            }}
+          />
+        </div>
+
+        <div
+          className="hero-content container premium-hero-grid"
+          style={{
+            position: "relative",
+            zIndex: 2,
+            width: "100%",
+            display: "grid",
+            gridTemplateColumns: "1.15fr 0.85fr",
+            gap: 34,
+            alignItems: "center",
+            paddingTop: 115,
+            paddingBottom: 75,
+          }}
+        >
+          {/* LEFT CONTENT */}
+          <div>
+            <span className="glass pill">
+              BLACK • GOLD • CINEMATIC
+            </span>
+
+            <h1
+              style={{
+                fontSize: "clamp(48px, 7vw, 98px)",
+                lineHeight: 0.92,
+                marginTop: 22,
+                marginBottom: 0,
+                textShadow: "0 12px 35px rgba(0,0,0,0.55)",
+              }}
             >
-              CLIENT GALLERY
-            </Link>
+              SURAJ PHOTOGRAPHY
+              <br />
+              & DESIGN STUDIO
+              <br />
+              <span className="gold-text">MOHANDRA</span>
+            </h1>
+
+            <p
+              className="muted"
+              style={{
+                fontSize: 19,
+                marginTop: 24,
+                maxWidth: 720,
+                lineHeight: 1.7,
+              }}
+            >
+              Wedding • Pre-Wedding • Cinematic Films • Photography
+              <br />
+              Premium photography and design experiences crafted
+              for unforgettable memories.
+            </p>
+
+            {/* MAIN BUTTONS */}
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                flexWrap: "wrap",
+                marginTop: 28,
+              }}
+            >
+              <Link
+                className="btn btn-primary"
+                href="/portfolio"
+              >
+                VIEW OUR WORK
+              </Link>
+
+              <Link
+                className="btn btn-ghost"
+                href="/booking"
+              >
+                BOOK YOUR EVENT
+              </Link>
+
+              <a
+                className="btn btn-ghost"
+                href="https://wa.me/919752579532"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                WHATSAPP US
+              </a>
+
+              <Link
+                className="btn btn-ghost"
+                href="/gallery"
+              >
+                CLIENT GALLERY
+              </Link>
+            </div>
+
+            {/* SOCIAL BUTTONS */}
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap",
+                marginTop: 18,
+              }}
+            >
+              <a
+                className="btn btn-ghost"
+                href="https://instagram.com/suraj_studio__01"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Instagram @suraj_studio__01
+              </a>
+
+              <a
+                className="btn btn-ghost"
+                href="https://instagram.com/suraj_designes"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Instagram @suraj_designes
+              </a>
+
+              <a
+                className="btn btn-ghost"
+                href="https://www.facebook.com/share/1JjgtnKTtz/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Facebook
+              </a>
+            </div>
           </div>
 
-          {/* SOCIAL BUTTONS */}
+          {/* RIGHT FLOATING PHOTO CARDS */}
           <div
+            className="hero-floating-area"
             style={{
-              display: "flex",
-              gap: 10,
-              justifyContent: "center",
-              flexWrap: "wrap",
-              marginTop: 18,
+              position: "relative",
+              minHeight: 560,
             }}
           >
-            <a
-              className="btn btn-ghost"
-              href="https://instagram.com/suraj_studio__01"
-              target="_blank"
-              rel="noopener noreferrer"
+            {/* MAIN PHOTO */}
+            <div
+              style={{
+                position: "absolute",
+                right: 0,
+                top: 0,
+                width: "78%",
+                height: 420,
+                overflow: "hidden",
+                borderRadius: 30,
+                background: "rgba(10,10,10,0.45)",
+                border: "1px solid rgba(212,175,55,0.30)",
+                boxShadow: "0 28px 70px rgba(0,0,0,0.50)",
+                backdropFilter: "blur(20px)",
+              }}
             >
-              Instagram @suraj_studio__01
-            </a>
+              <img
+                src="/images/home/hero-1.jpg"
+                alt="Wedding Photography"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  display: "block",
+                }}
+              />
 
-            <a
-              className="btn btn-ghost"
-              href="https://instagram.com/suraj_designes"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Instagram @suraj_designes
-            </a>
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background:
+                    "linear-gradient(to top, rgba(0,0,0,0.72), transparent 60%)",
+                }}
+              />
 
-            <a
-              className="btn btn-ghost"
-              href="https://www.facebook.com/share/1JjgtnKTtz/"
-              target="_blank"
-              rel="noopener noreferrer"
+              <div
+                style={{
+                  position: "absolute",
+                  left: 20,
+                  right: 20,
+                  bottom: 20,
+                }}
+              >
+                <div
+                  className="gold-text"
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 700,
+                    letterSpacing: 1.4,
+                  }}
+                >
+                  SIGNATURE WEDDING PHOTOGRAPHY
+                </div>
+
+                <div
+                  style={{
+                    color: "#fff",
+                    fontSize: 20,
+                    fontWeight: 700,
+                    marginTop: 5,
+                  }}
+                >
+                  Elegant. Cinematic. Timeless.
+                </div>
+              </div>
+            </div>
+
+            {/* SMALL FLOATING PHOTO */}
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 130,
+                width: "44%",
+                height: 190,
+                overflow: "hidden",
+                borderRadius: 24,
+                background: "rgba(10,10,10,0.48)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                boxShadow: "0 18px 50px rgba(0,0,0,0.42)",
+                backdropFilter: "blur(18px)",
+              }}
             >
-              Facebook
-            </a>
+              <img
+                src="/images/home/hero-2.jpg"
+                alt="Pre Wedding Photography"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  display: "block",
+                }}
+              />
+            </div>
+
+            {/* INFORMATION GLASS CARD */}
+            <div
+              style={{
+                position: "absolute",
+                right: 12,
+                bottom: 0,
+                width: "68%",
+                padding: 20,
+                borderRadius: 24,
+                background: "rgba(12,12,12,0.62)",
+                border: "1px solid rgba(212,175,55,0.26)",
+                boxShadow: "0 20px 55px rgba(0,0,0,0.42)",
+                backdropFilter: "blur(22px) saturate(140%)",
+              }}
+            >
+              <div
+                className="gold-text"
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  letterSpacing: 1.2,
+                  marginBottom: 12,
+                }}
+              >
+                SURAJ STUDIO MOHANDRA
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  marginBottom: 14,
+                }}
+              >
+                {[
+                  "Wedding",
+                  "Pre-Wedding",
+                  "Albums",
+                  "Cinematic Films",
+                ].map((item) => (
+                  <span
+                    key={item}
+                    style={{
+                      padding: "7px 11px",
+                      borderRadius: 999,
+                      background: "rgba(255,255,255,0.05)",
+                      border:
+                        "1px solid rgba(255,255,255,0.09)",
+                      color: "#fff",
+                      fontSize: 12,
+                    }}
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+
+              <p
+                className="muted"
+                style={{
+                  margin: 0,
+                  lineHeight: 1.7,
+                  fontSize: 14,
+                }}
+              >
+                Mohandra, Madhya Pradesh
+                <br />
+                9752579532 • 9131590791
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -137,9 +411,7 @@ export default function Home() {
       {/* PHOTO SHOWCASE */}
       <section
         className="section"
-        style={{
-          paddingTop: 35,
-        }}
+        style={{ paddingTop: 35 }}
       >
         <div className="container">
           <div
