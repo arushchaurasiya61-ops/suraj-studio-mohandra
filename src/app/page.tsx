@@ -10,9 +10,17 @@ const services = [
   "Premium Wedding Albums",
 ];
 
+const heroPhotos = [
+  "/images/home/hero-1.jpg",
+  "/images/home/hero-2.jpg",
+  "/images/home/hero-3.jpg",
+  "/images/home/hero-4.jpg",
+];
+
 export default function Home() {
   return (
     <main>
+      {/* HERO */}
       <section className="hero">
         <div className="hero-content container">
           <span className="glass pill">
@@ -42,10 +50,10 @@ export default function Home() {
               marginTop: 24,
             }}
           >
-            Wedding • Pre-Wedding • Cinematic Films •
-            Photography
+            Wedding • Pre-Wedding • Cinematic Films • Photography
           </p>
 
+          {/* MAIN ACTION BUTTONS */}
           <div
             style={{
               display: "flex",
@@ -86,6 +94,7 @@ export default function Home() {
             </Link>
           </div>
 
+          {/* SOCIAL BUTTONS */}
           <div
             style={{
               display: "flex",
@@ -125,6 +134,119 @@ export default function Home() {
         </div>
       </section>
 
+      {/* PHOTO SHOWCASE */}
+      <section
+        className="section"
+        style={{
+          paddingTop: 35,
+        }}
+      >
+        <div className="container">
+          <div
+            style={{
+              textAlign: "center",
+              marginBottom: 28,
+            }}
+          >
+            <p className="gold-text">
+              OUR PHOTOGRAPHY
+            </p>
+
+            <h2
+              style={{
+                fontSize: "clamp(30px, 5vw, 52px)",
+                marginBottom: 8,
+              }}
+            >
+              Moments We&apos;ve Captured
+            </h2>
+
+            <p className="muted">
+              Wedding • Pre-Wedding • Portraits • Celebrations
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: 16,
+              width: "100%",
+            }}
+          >
+            {heroPhotos.map((src, index) => (
+              <div
+                key={src}
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  height: 380,
+                  overflow: "hidden",
+                  borderRadius: 22,
+                  background: "#111",
+                  border:
+                    "1px solid rgba(212,175,55,0.30)",
+                  boxShadow:
+                    "0 18px 50px rgba(0,0,0,0.40)",
+                }}
+              >
+                <img
+                  src={src}
+                  alt={`Suraj Studio Photography ${index + 1}`}
+                  loading={index === 0 ? "eager" : "lazy"}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
+
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background:
+                      "linear-gradient(to top, rgba(0,0,0,0.45), transparent 55%)",
+                    pointerEvents: "none",
+                  }}
+                />
+
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 18,
+                    bottom: 18,
+                    color: "#fff",
+                    fontSize: 14,
+                    fontWeight: 600,
+                  }}
+                >
+                  SURAJ STUDIO MOHANDRA
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              marginTop: 28,
+            }}
+          >
+            <Link
+              href="/portfolio"
+              className="btn btn-primary"
+            >
+              VIEW FULL PORTFOLIO
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* SERVICES */}
       <section className="section">
         <div className="container">
           <p className="gold-text">
@@ -136,17 +258,16 @@ export default function Home() {
           </h2>
 
           <div className="grid service-grid">
-            {services.map((x) => (
+            {services.map((service) => (
               <GlassCard
                 className="service-card"
-                key={x}
+                key={service}
               >
-                <h3>{x}</h3>
+                <h3>{service}</h3>
 
                 <p className="muted">
-                  Premium coverage, professional
-                  editing and a client-first delivery
-                  workflow.
+                  Premium coverage, professional editing and a
+                  client-first delivery workflow.
                 </p>
 
                 <Link href="/booking">
@@ -158,6 +279,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* PORTFOLIO */}
       <section className="section">
         <div className="container">
           <p className="gold-text">
@@ -170,13 +292,13 @@ export default function Home() {
               "Pre-Wedding",
               "Bridal Portraits",
               "Cinematic Films",
-            ].map((x) => (
+            ].map((item) => (
               <div
                 className="portfolio-tile"
-                key={x}
+                key={item}
               >
                 <div className="tile-label">
-                  <b>{x}</b>
+                  <b>{item}</b>
 
                   <div className="muted">
                     Suraj Studio Mohandra
@@ -188,19 +310,18 @@ export default function Home() {
         </div>
       </section>
 
+      {/* FINAL CTA */}
       <section className="section">
         <div className="container">
           <GlassCard>
             <h2>
-              At Suraj Studio Mohandra, we
-              preserve emotions, stories and
-              memories.
+              At Suraj Studio Mohandra, we preserve emotions,
+              stories and memories.
             </h2>
 
             <p className="muted">
-              From the first enquiry to final
-              album selection, the platform is
-              designed around a premium, secure
+              From the first enquiry to final album selection,
+              the platform is designed around a premium, secure
               and mobile-friendly client journey.
             </p>
 
