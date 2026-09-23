@@ -22,7 +22,7 @@ export default function Home() {
     <main>
       {/* PREMIUM HERO */}
       <section
-        className="hero"
+        className="home-hero-fixed"
         style={{
           position: "relative",
           overflow: "hidden",
@@ -52,7 +52,7 @@ export default function Home() {
               objectPosition: "center center",
               display: "block",
               transform: "scale(1.03)",
-              opacity: 0.68,
+              opacity: 0.82,
             }}
           />
 
@@ -62,7 +62,7 @@ export default function Home() {
               position: "absolute",
               inset: 0,
               background:
-                "linear-gradient(180deg, rgba(0,0,0,0.34) 0%, rgba(0,0,0,0.24) 46%, rgba(0,0,0,0.52) 100%)",
+                "linear-gradient(180deg, rgba(0,0,0,0.24) 0%, rgba(0,0,0,0.14) 46%, rgba(0,0,0,0.38) 100%)",
             }}
           />
 
@@ -72,7 +72,7 @@ export default function Home() {
               position: "absolute",
               inset: 0,
               background:
-                "radial-gradient(circle at center, rgba(0,0,0,0.00) 28%, rgba(0,0,0,0.14) 65%, rgba(0,0,0,0.38) 100%)",
+                "radial-gradient(circle at center, rgba(0,0,0,0.00) 35%, rgba(0,0,0,0.10) 70%, rgba(0,0,0,0.24) 100%)",
             }}
           />
 
@@ -88,7 +88,7 @@ export default function Home() {
         </div>
 
         <div
-          className="hero-content container"
+          className="home-hero-content-fixed container"
           style={{
             position: "relative",
             zIndex: 2,
