@@ -34,7 +34,7 @@ async function uploadChunk(
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const response = await fetch(
-        "/api/admin/uploads/chunk",
+        "/api/admin/uploads/chunks",
         {
           method: "POST",
           headers: {

@@ -1,30 +1,17 @@
-import {
-  NextResponse,
-} from "next/server";
-
+import { NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  requireAdmin,
-} from "@/lib/admin-session";
-
-import {
-  db,
-} from "@/lib/supabase";
-
-import {
-  getDriveForAdmin,
-} from "@/lib/google-drive";
-
 import crypto from "crypto";
 
-const schema = z.object({
-  eventName: z
-    .string()
-    .min(2),
+import { requireAdmin } from "@/lib/admin-session";
+import { db } from "@/lib/supabase";
+import { getDriveForAdmin } from "@/lib/google-drive";
 
-  clientName: z
-    .string()
-    .min(1),
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const schema = z.object({
+  eventName: z.string().min(2),
+  clientName: z.string().min(1),
 
   brideName: z
     .string()
@@ -63,12 +50,11 @@ const schema = z.object({
     .optional()
     .nullable(),
 
-  visibility: z
-    .enum([
-      "public",
-      "unlisted",
-      "password",
-    ]),
+  visibility: z.enum([
+    "public",
+    "unlisted",
+    "password",
+  ]),
 
   password: z
     .string()
@@ -79,11 +65,17 @@ const schema = z.object({
 function slugify(value: string) {
   return value
     .toLowerCase()
-    .replace(
-      /[^a-z0-9]+/g,
-      "-"
-    )
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+function escapeDriveQueryValue(
+  value: string
+) {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'");
 }
 
 async function createFolder(
@@ -110,7 +102,97 @@ async function createFolder(
       fields: "id,name",
     });
 
-  return result.data.id as string;
+  if (!result.data.id) {
+    throw new Error(
+      `Folder create nahi hua: ${name}`
+    );
+  }
+
+  return result.data.id;
+}
+
+async function findFolder(
+  drive: any,
+  name: string,
+  parentId?: string
+) {
+  const safeName =
+    escapeDriveQueryValue(name);
+
+  const queryParts = [
+    `name='${safeName}'`,
+    `mimeType='application/vnd.google-apps.folder'`,
+    "trashed=false",
+  ];
+
+  if (parentId) {
+    queryParts.push(
+      `'${parentId}' in parents`
+    );
+  } else {
+    queryParts.push(
+      "'root' in parents"
+    );
+  }
+
+  const result =
+    await drive.files.list({
+      q: queryParts.join(" and "),
+      fields:
+        "files(id,name,parents)",
+      pageSize: 10,
+    });
+
+  const folder =
+    result.data.files?.[0];
+
+  return folder?.id || null;
+}
+
+async function findOrCreateFolder(
+  drive: any,
+  name: string,
+  parentId?: string
+) {
+  const existingId =
+    await findFolder(
+      drive,
+      name,
+      parentId
+    );
+
+  if (existingId) {
+    return existingId;
+  }
+
+  return createFolder(
+    drive,
+    name,
+    parentId
+  );
+}
+
+function buildEventFolderName(
+  body: z.infer<typeof schema>,
+  year: number
+) {
+  const bride =
+    body.brideName?.trim();
+
+  const groom =
+    body.groomName?.trim();
+
+  if (bride && groom) {
+    return `${bride}-${groom}-${year}`;
+  }
+
+  if (
+    body.clientName?.trim()
+  ) {
+    return `${body.clientName.trim()}-${year}`;
+  }
+
+  return `${body.eventName.trim()}-${year}`;
 }
 
 export async function POST(
@@ -135,42 +217,58 @@ export async function POST(
         body.eventDate
       ).getFullYear();
 
+    if (
+      !Number.isFinite(year)
+    ) {
+      throw new Error(
+        "Invalid event date."
+      );
+    }
+
     const random =
       crypto
         .randomBytes(3)
         .toString("hex")
         .toUpperCase();
 
-    const slug = `${slugify(
-      body.eventName
-    )}-${random}`;
+    const slug =
+      `${slugify(
+        body.eventName
+      )}-${random}`;
 
     const eventCode =
       `SSM-${year}-${random}`;
 
-    // Root structure:
-    // Suraj Studio Mohandra / Events
-
+    // 1 permanent root folder
     const studioFolder =
-      await createFolder(
+      await findOrCreateFolder(
         drive,
         "Suraj Studio Mohandra"
       );
 
+    // 1 permanent Events folder
     const eventsFolder =
-      await createFolder(
+      await findOrCreateFolder(
         drive,
         "Events",
         studioFolder
       );
 
+    const eventFolderName =
+      buildEventFolderName(
+        body,
+        year
+      );
+
+    // New folder only for this client/event
     const eventFolder =
       await createFolder(
         drive,
-        `${body.eventName}-${year}`,
+        eventFolderName,
         eventsFolder
       );
 
+    // Event categories
     const tilakFolder =
       await createFolder(
         drive,
@@ -208,16 +306,20 @@ export async function POST(
             body.clientName,
 
           bride_name:
-            body.brideName || null,
+            body.brideName ||
+            null,
 
           groom_name:
-            body.groomName || null,
+            body.groomName ||
+            null,
 
           phone:
-            body.phone || null,
+            body.phone ||
+            null,
 
           whatsapp:
-            body.whatsapp || null,
+            body.whatsapp ||
+            null,
 
           event_date:
             body.eventDate,
@@ -227,7 +329,8 @@ export async function POST(
             "Wedding",
 
           location:
-            body.location || null,
+            body.location ||
+            null,
 
           description:
             body.description ||
@@ -244,7 +347,7 @@ export async function POST(
             eventFolder,
 
           drive_folder_name:
-            `${body.eventName}-${year}`,
+            eventFolderName,
 
           sync_status:
             "uploading",
@@ -269,6 +372,17 @@ export async function POST(
 
       slug,
 
+      studioFolderId:
+        studioFolder,
+
+      eventsFolderId:
+        eventsFolder,
+
+      eventFolderId:
+        eventFolder,
+
+      eventFolderName,
+
       folders: {
         Tilak:
           tilakFolder,
@@ -281,6 +395,11 @@ export async function POST(
       },
     });
   } catch (error) {
+    console.error(
+      "Create event upload-init error:",
+      error
+    );
+
     return NextResponse.json(
       {
         error:
