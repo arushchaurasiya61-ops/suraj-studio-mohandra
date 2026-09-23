@@ -409,42 +409,29 @@ export function CreateEventForm() {
           photos alag-alag select karo.
         </p>
 
-        {categories.map(
-          (category) => (
-            <div
-              className="glass card"
-              key={category}
-              style={{
-                marginBottom: 16,
-              }}
-            >
-              <h3>
-                {category} Photos
-              </h3>
+        {categories.map((category) => (
+  <div
+    className="glass card"
+    key={category}
+    style={{ marginBottom: 16 }}
+  >
+    <h3>{category} Photos</h3>
 
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                disabled={submitting}
-                onChange={(e) =>
-                  selectFiles(
-                    category,
-                    e.target.files
-                  )
-                }
-              />
+    <input
+      type="file"
+      accept="image/*"
+      multiple
+      disabled={submitting}
+      onChange={(e) =>
+        selectFiles(category, e.target.files)
+      }
+    />
 
-              <p className="muted">
-                {
-                  files[category]
-                    .length
-                }{" "}
-                photos selected
-              </p>
-            </div>
-          )
-        )}
+    <p className="muted">
+      {files[category].length} photos selected
+    </p>
+  </div>
+))}
 
         <div className="glass gold card">
           <strong>
