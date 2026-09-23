@@ -12,6 +12,69 @@ const categories: Category[] = [
   "Shadi",
 ];
 
+const CHUNK_SIZE = 3 * 1024 * 1024;
+
+async function wait(milliseconds: number) {
+  return new Promise<void>((resolve) =>
+    setTimeout(resolve, milliseconds)
+  );
+}
+
+async function uploadChunk(
+  uploadUrl: string,
+  file: File,
+  start: number,
+  endExclusive: number
+) {
+  const chunk = file.slice(start, endExclusive);
+  const end = endExclusive - 1;
+
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await fetch(
+        "/api/admin/uploads/chunk",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/octet-stream",
+            "x-upload-url": uploadUrl,
+            "x-file-size": String(file.size),
+            "x-chunk-start": String(start),
+            "x-chunk-end": String(end),
+            "x-mime-type":
+              file.type || "application/octet-stream",
+          },
+          body: chunk,
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+            `Chunk upload failed (${response.status})`
+        );
+      }
+
+      return result;
+    } catch (error) {
+      lastError =
+        error instanceof Error
+          ? error
+          : new Error("Chunk upload failed.");
+
+      if (attempt < 3) {
+        await wait(attempt * 1000);
+      }
+    }
+  }
+
+  throw lastError || new Error("Chunk upload failed.");
+}
+
 export function CreateEventForm() {
   const [status, setStatus] = useState("");
   const [submitting, setSubmitting] =
@@ -177,28 +240,34 @@ export function CreateEventForm() {
             );
           }
 
-          // File directly Google Drive upload session par jayegi
+          // Upload through our own API in resumable chunks.
+          // This avoids the browser -> Google Drive CORS failure.
+          let start = 0;
 
-          const uploadResponse =
-            await fetch(
+          while (start < file.size) {
+            const endExclusive = Math.min(
+              start + CHUNK_SIZE,
+              file.size
+            );
+
+            const filePercent = Math.round(
+              (endExclusive / file.size) * 100
+            );
+
+            setProgress({
+              uploaded,
+              total: totalFiles,
+              current: `${category} • ${file.name} • ${filePercent}%`,
+            });
+
+            await uploadChunk(
               session.uploadUrl,
-              {
-                method: "PUT",
-                headers: {
-                  "Content-Type":
-                    file.type ||
-                    "application/octet-stream",
-                  "Content-Length":
-                    String(file.size),
-                },
-                body: file,
-              }
+              file,
+              start,
+              endExclusive
             );
 
-          if (!uploadResponse.ok) {
-            throw new Error(
-              `Upload failed: ${file.name}`
-            );
+            start = endExclusive;
           }
 
           uploaded++;

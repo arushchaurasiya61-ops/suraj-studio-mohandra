@@ -1,46 +1,35 @@
-import {
-  NextResponse,
-} from "next/server";
-
+import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import {
-  requireAdmin,
-} from "@/lib/admin-session";
+import { requireAdmin } from "@/lib/admin-session";
+import { getDriveForAdmin } from "@/lib/google-drive";
 
-import {
-  getDriveForAdmin,
-} from "@/lib/google-drive";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const schema = z.object({
-  eventId: z.string(),
-  folderId: z.string(),
-  category: z.string(),
-  fileName: z.string(),
-  mimeType: z.string(),
-  size: z.number(),
+  eventId: z.string().min(1),
+  folderId: z.string().min(1),
+  category: z.enum(["Tilak", "Haldi", "Shadi"]),
+  fileName: z.string().min(1),
+  mimeType: z.string().min(1),
+  size: z.number().positive(),
 });
 
-export async function POST(
-  req: Request
-) {
+export async function POST(req: Request) {
   try {
-    const admin =
-      await requireAdmin();
+    const admin = await requireAdmin();
 
-    const body =
-      schema.parse(
-        await req.json()
-      );
+    const body = schema.parse(
+      await req.json()
+    );
 
-    const drive =
-      await getDriveForAdmin(
-        admin.uid
-      );
+    const drive = await getDriveForAdmin(
+      admin.uid
+    );
 
-    const auth =
-      drive.context
-        ._options.auth as any;
+    const auth = drive.context
+      ._options.auth as any;
 
     const token =
       await auth.getAccessToken();
@@ -51,46 +40,41 @@ export async function POST(
       );
     }
 
-    const response =
-      await fetch(
-        "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable",
-        {
-          method: "POST",
+    const response = await fetch(
+      "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable",
+      {
+        method: "POST",
 
-          headers: {
-            Authorization:
-              `Bearer ${token.token}`,
+        headers: {
+          Authorization: `Bearer ${token.token}`,
 
-            "Content-Type":
-              "application/json; charset=UTF-8",
+          "Content-Type":
+            "application/json; charset=UTF-8",
 
-            "X-Upload-Content-Type":
-              body.mimeType,
+          "X-Upload-Content-Type":
+            body.mimeType,
 
-            "X-Upload-Content-Length":
-              String(
-                body.size
-              ),
+          "X-Upload-Content-Length":
+            String(body.size),
+        },
+
+        body: JSON.stringify({
+          name: body.fileName,
+
+          parents: [
+            body.folderId,
+          ],
+
+          appProperties: {
+            eventId:
+              body.eventId,
+
+            category:
+              body.category,
           },
-
-          body: JSON.stringify({
-            name:
-              body.fileName,
-
-            parents: [
-              body.folderId,
-            ],
-
-            appProperties: {
-              eventId:
-                body.eventId,
-
-              category:
-                body.category,
-            },
-          }),
-        }
-      );
+        }),
+      }
+    );
 
     if (!response.ok) {
       const text =
@@ -116,6 +100,11 @@ export async function POST(
       uploadUrl,
     });
   } catch (error) {
+    console.error(
+      "Drive upload session error:",
+      error
+    );
+
     return NextResponse.json(
       {
         error:
@@ -123,7 +112,6 @@ export async function POST(
             ? error.message
             : "Unable to start upload.",
       },
-
       {
         status: 400,
       }
