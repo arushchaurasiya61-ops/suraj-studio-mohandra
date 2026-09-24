@@ -41,7 +41,7 @@ export default function Home() {
           }}
         >
           <img
-            src="/images/home/hero-main.jpg"
+            src="/images/home/hero-main.jpeg"
             alt="Suraj Studio Hero Background"
             style={{
               position: "absolute",
