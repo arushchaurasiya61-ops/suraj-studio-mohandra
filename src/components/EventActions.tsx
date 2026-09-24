@@ -63,7 +63,7 @@ export function EventActions({
     try {
       const response =
         await fetch(
-          `/api/admin/events/${event.id}`,
+          `/api/admin/events/upload-init/${event.id}`,
           {
             method: "PATCH",
 
@@ -131,8 +131,20 @@ export function EventActions({
           }
         );
 
-      const result =
-        await response.json();
+      const responseText =
+        await response.text();
+
+      let result: any = {};
+
+      try {
+        result = responseText
+          ? JSON.parse(responseText)
+          : {};
+      } catch {
+        throw new Error(
+          `Event API returned non-JSON response (${response.status})`
+        );
+      }
 
       if (!response.ok) {
         throw new Error(
@@ -182,7 +194,7 @@ export function EventActions({
     try {
       const response =
         await fetch(
-          `/api/admin/events/${event.id}?deleteDrive=${
+          `/api/admin/events/upload-init/${event.id}?deleteDrive=${
             deleteDrive
               ? "true"
               : "false"
@@ -193,8 +205,20 @@ export function EventActions({
           }
         );
 
-      const result =
-        await response.json();
+      const responseText =
+        await response.text();
+
+      let result: any = {};
+
+      try {
+        result = responseText
+          ? JSON.parse(responseText)
+          : {};
+      } catch {
+        throw new Error(
+          `Event API returned non-JSON response (${response.status})`
+        );
+      }
 
       if (!response.ok) {
         throw new Error(
