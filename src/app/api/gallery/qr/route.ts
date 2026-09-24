@@ -8,12 +8,16 @@ import QRCode from "qrcode";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function getAppOrigin(req: NextRequest) {
+function getAppOrigin(
+  req: NextRequest
+) {
   const configured =
     process.env.NEXT_PUBLIC_APP_URL?.trim();
 
   if (configured) {
-    return new URL(configured).origin;
+    return new URL(
+      configured
+    ).origin;
   }
 
   return req.nextUrl.origin;
@@ -130,8 +134,10 @@ export async function GET(
         headers: {
           "Content-Type":
             "image/png",
+
           "Cache-Control":
             "private, no-store, max-age=0",
+
           "X-Content-Type-Options":
             "nosniff",
         },

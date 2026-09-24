@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+
 import { db } from "@/lib/supabase";
 import { GalleryClient } from "@/components/GalleryClient";
 import { GalleryPassword } from "@/components/GalleryPassword";
@@ -22,12 +23,11 @@ export default async function EventGallery({
 }) {
   const { slug } = await params;
 
-  const { data: event, error } =
-    await db()
-      .from("events")
-      .select("*")
-      .eq("slug", slug)
-      .maybeSingle();
+  const { data: event, error } = await db()
+    .from("events")
+    .select("*")
+    .eq("slug", slug)
+    .maybeSingle();
 
   if (error) {
     throw new Error(error.message);
@@ -37,45 +37,49 @@ export default async function EventGallery({
     notFound();
   }
 
+  // Gallery expiry check
   if (
     event.expiry_date &&
-    new Date(
-      event.expiry_date
-    ).getTime() < Date.now()
+    new Date(event.expiry_date).getTime() < Date.now()
   ) {
     return (
       <main className="section">
         <div className="container">
-          <h1>
-            This gallery is no longer
-            available.
-          </h1>
+          <div
+            className="glass gold card"
+            style={{
+              padding: 24,
+            }}
+          >
+            <h1>This gallery is no longer available.</h1>
+
+            <p className="muted">
+              The access period for this gallery has expired.
+            </p>
+          </div>
         </div>
       </main>
     );
   }
 
+  // Password access check
   if (
     !(await hasGalleryAccess(
       event.id,
-      event.password_protected
+      event.password_protected === true
     ))
   ) {
     return (
       <main className="section">
         <div className="container">
-          <GalleryPassword
-            eventId={event.id}
-          />
+          <GalleryPassword eventId={event.id} />
         </div>
       </main>
     );
   }
 
-  const {
-    data: photos,
-    error: photoError,
-  } = await db()
+  // Load active photos
+  const { data: photos, error: photoError } = await db()
     .from("photos")
     .select(
       "id,public_photo_code,file_name"
@@ -88,41 +92,63 @@ export default async function EventGallery({
     .limit(200);
 
   if (photoError) {
-    throw new Error(
-      photoError.message
-    );
+    throw new Error(photoError.message);
   }
 
   return (
     <GalleryClient
       event={{
-        id: event.id,
-        eventName:
-          event.event_name ||
-          "Event Gallery",
-        eventCode:
-          event.event_code || "",
-        allowPhotoSharing:
-          event.allow_photo_sharing !==
-          false,
-        allowGallerySharing:
-          event.allow_gallery_sharing !==
-          false,
-        allowOptimizedDownload:
-          event.allow_optimized_download ===
-          true,
-        passwordProtected:
-          event.password_protected ===
-          true,
-      }}
+  id: event.id,
+
+  eventName:
+    event.event_name || "Event Gallery",
+
+  eventCode:
+    event.event_code || "",
+
+  brideName:
+    event.bride_name || "",
+
+  groomName:
+    event.groom_name || "",
+
+  clientName:
+    event.client_name || "",
+
+  eventDate:
+    event.event_date || "",
+
+  eventType:
+    event.event_type || "",
+
+  location:
+    event.location || "",
+
+  description:
+    event.description || "",
+
+  allowPhotoSharing:
+    event.allow_photo_sharing !== false,
+
+  allowGallerySharing:
+    event.allow_gallery_sharing !== false,
+
+  allowOptimizedDownload:
+    event.allow_optimized_download === true,
+
+  passwordProtected:
+    event.password_protected === true,
+}}
       photos={(photos || []).map(
-        (p: any) => ({
-          id: p.id,
+        (photo: any) => ({
+          id: photo.id,
+
           publicPhotoCode:
-            p.public_photo_code ||
-            p.id,
+            photo.public_photo_code ||
+            photo.id,
+
           fileName:
-            p.file_name ||
+            photo.file_name ||
             "Photo",
         })
       )}

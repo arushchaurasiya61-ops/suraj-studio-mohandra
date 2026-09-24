@@ -127,3 +127,43 @@ export async function listDriveFolders(
 
   return folders;
 }
+export async function getDriveForGallery(): Promise<drive_v3.Drive> {
+  const { data, error } = await db()
+    .from("drive_connections")
+    .select("refresh_token")
+    .eq("connected", true)
+    .order("updated_at", {
+      ascending: false,
+    })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const connection = data as
+    | {
+        refresh_token: string | null;
+      }
+    | null;
+
+  if (!connection?.refresh_token) {
+    throw new Error(
+      "Google Drive is not connected."
+    );
+  }
+
+  const client = oauthClient();
+
+  client.setCredentials({
+    refresh_token: decryptText(
+      connection.refresh_token
+    ),
+  });
+
+  return google.drive({
+    version: "v3",
+    auth: client,
+  });
+}
