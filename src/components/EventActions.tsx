@@ -63,7 +63,7 @@ export function EventActions({
     try {
       const response =
         await fetch(
-          `/api/admin/events/upload-init/${event.id}`,
+          `/api/admin/events/${event.id}`,
           {
             method: "PATCH",
 
@@ -194,7 +194,7 @@ export function EventActions({
     try {
       const response =
         await fetch(
-          `/api/admin/events/upload-init/${event.id}?deleteDrive=${
+          `/api/admin/events/${event.id}?deleteDrive=${
             deleteDrive
               ? "true"
               : "false"
@@ -203,7 +203,7 @@ export function EventActions({
             method:
               "DELETE",
           }
-        );
+      );
 
       const responseText =
         await response.text();
