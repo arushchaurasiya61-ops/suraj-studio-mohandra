@@ -45,6 +45,7 @@ interface Booking {
   paymentMode: PaymentMode;
   paymentLogs: PaymentLog[];
   notes: string;
+  lastReminderDate?: string;
 }
 
 interface Expense {
@@ -99,7 +100,7 @@ export default function SurajStudioBillingERP() {
 
   // --- NAVIGATION ---
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "pipeline" | "billing" | "expenses" | "gear" | "settings"
+    "dashboard" | "whatsapp" | "pipeline" | "billing" | "expenses" | "gear" | "settings"
   >("dashboard");
 
   // --- STUDIO SETTINGS ---
@@ -110,10 +111,17 @@ export default function SurajStudioBillingERP() {
   const [studioPhone, setStudioPhone] = useState("+91 98765 43210");
   const [studioAddress, setStudioAddress] = useState("Main Market, Muhandra, MP");
   const [studioGstin, setStudioGstin] = useState("");
-  const [upiId, setUpiId] = useState("surajstudio@upi");
+  const [upiId, setUpiId] = useState("surajstudio@ybl"); // Settings tab se apni asli UPI ID zaroor daalein
+  const [includeAmountInQr, setIncludeAmountInQr] = useState(false); // Normal Saving UPI ke liye false best hai
   const [termsText, setTermsText] = useState(
     "1. 50% Advance mandatory for booking confirmation.\n2. Remaining balance to be cleared before raw data/album delivery.\n3. Photo selection must be completed within 15 days of shoot."
   );
+
+  // --- WHATSAPP AUTOMATION SETTINGS ---
+  const [autoTriggerOnSave, setAutoTriggerOnSave] = useState(true);
+  const [autoTriggerOnStageChange, setAutoTriggerOnStageChange] = useState(true);
+  const [waApiWebhookUrl, setWaApiWebhookUrl] = useState("");
+  const [waApiToken, setWaApiToken] = useState("");
 
   // --- FILTERS ---
   const [searchQuery, setSearchQuery] = useState("");
@@ -184,7 +192,12 @@ export default function SurajStudioBillingERP() {
       if (parsed.studioAddress) setStudioAddress(parsed.studioAddress);
       if (parsed.studioGstin) setStudioGstin(parsed.studioGstin);
       if (parsed.upiId) setUpiId(parsed.upiId);
+      if (typeof parsed.includeAmountInQr === "boolean") setIncludeAmountInQr(parsed.includeAmountInQr);
       if (parsed.termsText) setTermsText(parsed.termsText);
+      if (typeof parsed.autoTriggerOnSave === "boolean") setAutoTriggerOnSave(parsed.autoTriggerOnSave);
+      if (typeof parsed.autoTriggerOnStageChange === "boolean") setAutoTriggerOnStageChange(parsed.autoTriggerOnStageChange);
+      if (parsed.waApiWebhookUrl) setWaApiWebhookUrl(parsed.waApiWebhookUrl);
+      if (parsed.waApiToken) setWaApiToken(parsed.waApiToken);
     }
 
     if (savedBookings) {
@@ -293,11 +306,16 @@ export default function SurajStudioBillingERP() {
       studioPhone,
       studioAddress,
       studioGstin,
-      upiId,
+      upiId: upiId.trim(),
+      includeAmountInQr,
       termsText,
+      autoTriggerOnSave,
+      autoTriggerOnStageChange,
+      waApiWebhookUrl,
+      waApiToken,
     };
     localStorage.setItem("suraj_studio_settings_v2", JSON.stringify(data));
-    alert("✅ Studio Settings Save ho gayi!");
+    alert("✅ Studio Settings & UPI QR Save ho gayi!");
   };
 
   // --- CALCULATIONS ---
@@ -324,9 +342,104 @@ export default function SurajStudioBillingERP() {
     advancePaid,
   });
 
+  // --- 100% WORKING NPCI STANDARD UPI QR GENERATOR ---
+  const getUpiAndQrForAmount = (amount: number, billId: string) => {
+    const cleanUpi = upiId.trim();
+    const cleanName = studioName.replace(/[^a-zA-Z0-9 ]/g, "").trim() || "Suraj Studio";
+
+    // Agar Merchant UPI hai aur switch ON hai tabhi amount daalo, warna Universal QR banao jo kabhi fail na ho
+    const amtParam =
+      includeAmountInQr && amount > 0 ? `&am=${Number(amount).toFixed(2)}` : "";
+
+    const upiDeepLink = `upi://pay?pa=${cleanUpi}&pn=${encodeURIComponent(
+      cleanName
+    )}${amtParam}&cu=INR`;
+
+    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=350x350&ecc=M&margin=10&data=${encodeURIComponent(
+      upiDeepLink
+    )}`;
+
+    return { upiDeepLink, qrImageUrl };
+  };
+
+  // --- WHATSAPP AUTOMATION ENGINE (PENDING AMOUNT + QR CODE) ---
+  const sendAutomatedPaymentReminder = async (
+    b: Booking,
+    mode: "GENTLE" | "READY_DELIVERY" | "URGENT" = "GENTLE"
+  ) => {
+    const t = calcBookingTotals(b);
+    const cleanPhone = b.phone.replace(/\D/g, "");
+    const num = cleanPhone.length === 10 ? "91" + cleanPhone : cleanPhone;
+    const { upiDeepLink, qrImageUrl } = getUpiAndQrForAmount(t.balanceDue, b.id);
+
+    let headerLine = `Namaste *${b.clientName}* ji 🙏,`;
+    if (mode === "READY_DELIVERY") {
+      headerLine = `🎉 *Good News ${b.clientName} ji!* Aapke *${b.eventType}* ka kaam/album *Ready for Delivery* hai!`;
+    } else if (mode === "URGENT") {
+      headerLine = `🔔 *Payment Reminder:* Namaste *${b.clientName}* ji, aapke shoot ka balance payment abhi pending hai.`;
+    }
+
+    const plainTextMessage =
+      `*📸 ${studioName}*\n` +
+      `--------------------------------\n` +
+      `${headerLine}\n\n` +
+      `🧾 *Bill No:* ${b.id}\n` +
+      `📅 *Event Date:* ${b.eventDate}\n` +
+      `📌 *Work Status:* ${b.stage}\n\n` +
+      `💰 *Total Package:* ₹${t.grandTotal.toLocaleString("en-IN")}\n` +
+      `✅ *Paid Amount:* ₹${b.advancePaid.toLocaleString("en-IN")}\n` +
+      `⏳ *PENDING BALANCE:* *₹${t.balanceDue.toLocaleString("en-IN")}*\n` +
+      `--------------------------------\n` +
+      `💳 *UPI ID:* ${upiId.trim()}\n\n` +
+      `🔳 *Scan UPI QR Code to Pay ₹${t.balanceDue.toLocaleString("en-IN")}:*\n` +
+      `${qrImageUrl}\n\n` +
+      (b.driveLink ? `📂 *Photos Drive Link:* ${b.driveLink}\n\n` : "") +
+      `Kripya upar diye gaye QR code ya UPI ID par ₹${t.balanceDue.toLocaleString(
+        "en-IN"
+      )} pay karke screenshot bhej dein. Dhanyawad! 🙏`;
+
+    // 1. Mark last reminder date
+    const today = new Date().toISOString().split("T")[0];
+    const updatedBookings = bookings.map((item) =>
+      item.id === b.id ? { ...item, lastReminderDate: today } : item
+    );
+    saveBookingsToStorage(updatedBookings);
+
+    // 2. If Background WhatsApp API Webhook is configured, send automatically in background!
+    if (waApiWebhookUrl.trim()) {
+      try {
+        await fetch(waApiWebhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: waApiToken,
+            to: num,
+            clientName: b.clientName,
+            billId: b.id,
+            pendingAmount: t.balanceDue,
+            qrImage: qrImageUrl,
+            upiLink: upiDeepLink,
+            message: plainTextMessage,
+          }),
+        });
+        alert(`🤖 Auto-WhatsApp + QR Code sent to ${b.clientName} (${num}) via API!`);
+        return;
+      } catch (err) {
+        console.error("Webhook failed, falling back to WhatsApp Direct:", err);
+      }
+    }
+
+    // 3. Free Instant WhatsApp Direct Launch with QR Code & Pending Amount
+    const encodedMsg = encodeURIComponent(plainTextMessage);
+    window.open(`https://wa.me/${num}?text=${encodedMsg}`, "_blank");
+  };
+
   // Dashboard Metrics
   const invoiceList = bookings.filter((b) => b.docType === "INVOICE");
   const estimateList = bookings.filter((b) => b.docType === "ESTIMATE");
+  const pendingClientsList = bookings.filter(
+    (b) => b.docType === "INVOICE" && calcBookingTotals(b).balanceDue > 0
+  );
   const totalRevenue = invoiceList.reduce((s, b) => s + calcBookingTotals(b).grandTotal, 0);
   const totalCollected = invoiceList.reduce((s, b) => s + (Number(b.advancePaid) || 0), 0);
   const totalPending = invoiceList.reduce((s, b) => s + calcBookingTotals(b).balanceDue, 0);
@@ -392,7 +505,40 @@ export default function SurajStudioBillingERP() {
 
     saveBookingsToStorage(updated);
     setEditId(id);
-    alert(`✅ ${id} Save ho gaya!`);
+
+    const totals = calcBookingTotals(newRecord);
+    if (autoTriggerOnSave && totals.balanceDue > 0 && phone.trim().length >= 10) {
+      const ask = confirm(
+        `✅ ${id} Save ho gaya!\n\nClient ka ₹${totals.balanceDue.toLocaleString(
+          "en-IN"
+        )} pending hai. Kya abhi WhatsApp par Bill + QR Code bhejein?`
+      );
+      if (ask) {
+        sendAutomatedPaymentReminder(newRecord, "GENTLE");
+      }
+    } else {
+      alert(`✅ ${id} Save ho gaya!`);
+    }
+  };
+
+  const handleStageUpdateWithAutomation = (b: Booking, newStage: PipelineStage) => {
+    const updatedBooking = { ...b, stage: newStage };
+    const updatedList = bookings.map((item) =>
+      item.id === b.id ? updatedBooking : item
+    );
+    saveBookingsToStorage(updatedList);
+
+    const t = calcBookingTotals(updatedBooking);
+    if (
+      autoTriggerOnStageChange &&
+      t.balanceDue > 0 &&
+      (newStage === "Ready" || newStage === "Selection Pending" || newStage === "Album Lab")
+    ) {
+      sendAutomatedPaymentReminder(
+        updatedBooking,
+        newStage === "Ready" ? "READY_DELIVERY" : "GENTLE"
+      );
+    }
   };
 
   const handleLoadBooking = (b: Booking) => {
@@ -470,6 +616,11 @@ export default function SurajStudioBillingERP() {
 
   const handleWhatsAppShare = (b: Booking) => {
     const t = calcBookingTotals(b);
+    if (t.balanceDue > 0) {
+      sendAutomatedPaymentReminder(b, b.stage === "Ready" ? "READY_DELIVERY" : "GENTLE");
+      return;
+    }
+
     const cleanPhone = b.phone.replace(/\D/g, "");
     const num = cleanPhone.length === 10 ? "91" + cleanPhone : cleanPhone;
 
@@ -482,9 +633,9 @@ export default function SurajStudioBillingERP() {
       `📌 *Work Status:* ${b.stage}%0A` +
       `💰 *Total Package:* ₹${t.grandTotal.toLocaleString("en-IN")}%0A` +
       `✅ *Paid Amount:* ₹${b.advancePaid.toLocaleString("en-IN")}%0A` +
-      `⏳ *Balance Due:* ₹${t.balanceDue.toLocaleString("en-IN")}%0A` +
+      `🎉 *Balance Due:* ₹0 (Fully Paid)%0A` +
       (b.driveLink ? `%0A📂 *Photos Drive Link:* ${b.driveLink}%0A` : "") +
-      `%0A💳 *UPI Pay:* ${upiId}%0ADhanyawad! 🙏`;
+      `%0ADhanyawad! 🙏`;
 
     window.open(`https://wa.me/${num}?text=${msg}`, "_blank");
   };
@@ -560,13 +711,11 @@ export default function SurajStudioBillingERP() {
     setGearAssignedTo("");
   };
 
-  // UPI QR URL
-  const upiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
-    studioName
-  )}&am=${currentTotals.balanceDue > 0 ? currentTotals.balanceDue : ""}&cu=INR`;
-  const qrCodeImg = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(
-    upiUri
-  )}`;
+  // UPI QR URL for Live Invoice Preview (Using Fixed Generator)
+  const { qrImageUrl: qrCodeImg } = getUpiAndQrForAmount(
+    currentTotals.balanceDue,
+    editId || "INV"
+  );
 
   // --- 1. LOCK SCREEN ---
   if (!isUnlocked) {
@@ -632,6 +781,19 @@ export default function SurajStudioBillingERP() {
               }`}
             >
               📊 Dashboard & Reports
+            </button>
+            <button
+              onClick={() => setActiveTab("whatsapp")}
+              className={`px-3.5 py-2.5 rounded-xl text-xs font-semibold text-left transition flex items-center justify-between ${
+                activeTab === "whatsapp"
+                  ? "bg-emerald-600 text-white"
+                  : "text-emerald-400 bg-emerald-950/30 hover:bg-zinc-800"
+              }`}
+            >
+              <span>🤖 WhatsApp & QR Auto</span>
+              <span className="bg-emerald-500 text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {pendingClientsList.length}
+              </span>
             </button>
             <button
               onClick={() => setActiveTab("pipeline")}
@@ -704,6 +866,157 @@ export default function SurajStudioBillingERP() {
 
       {/* Main Content */}
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+        {/* TAB: WHATSAPP & QR AUTOMATION HUB */}
+        {activeTab === "whatsapp" && (
+          <div className="space-y-6">
+            <div className="bg-emerald-950/30 border border-emerald-800/60 p-5 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <span className="bg-emerald-500 text-black text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase">
+                  Smart Vasooli Bot Active
+                </span>
+                <h2 className="text-xl font-bold mt-2">
+                  🤖 WhatsApp Pending Payment & QR Automation
+                </h2>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Jin clients ka balance baki hai, unko 1-Click ya Stage-Change par{" "}
+                  <strong className="text-emerald-400">Scannable UPI QR Code ({upiId})</strong> aur Payment Reminder bhejein.
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-zinc-400">Total Pending Vasooli</p>
+                <p className="text-2xl font-extrabold text-amber-400">
+                  ₹{totalPending.toLocaleString("en-IN")}
+                </p>
+                <p className="text-[11px] text-emerald-400">
+                  {pendingClientsList.length} Clients Pending
+                </p>
+              </div>
+            </div>
+
+            {/* Automation Rules Switches */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex items-center justify-between cursor-pointer">
+                <div>
+                  <p className="text-xs font-bold text-white">
+                    ⚡ Auto-Trigger on New Bill Save
+                  </p>
+                  <p className="text-[11px] text-zinc-400">
+                    Jab bhi kisi bill mein Balance Due bache, save karte hi WhatsApp QR bhejne ka popup aaye
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={autoTriggerOnSave}
+                  onChange={(e) => setAutoTriggerOnSave(e.target.checked)}
+                  className="w-5 h-5 accent-emerald-500"
+                />
+              </label>
+
+              <label className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex items-center justify-between cursor-pointer">
+                <div>
+                  <p className="text-xs font-bold text-white">
+                    🎬 Auto-Trigger When Work is &quot;Ready&quot; / &quot;Selection Pending&quot;
+                  </p>
+                  <p className="text-[11px] text-zinc-400">
+                    Pipeline mein stage badalte hi client ko &quot;Work Ready + Pay Pending QR&quot; message chala jaye
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={autoTriggerOnStageChange}
+                  onChange={(e) => setAutoTriggerOnStageChange(e.target.checked)}
+                  className="w-5 h-5 accent-emerald-500"
+                />
+              </label>
+            </div>
+
+            {/* Pending Clients Queue with Live QR Preview */}
+            <div className="space-y-3">
+              <h3 className="font-bold text-sm text-zinc-300">
+                📋 Pending Payment Queue ({pendingClientsList.length} Clients)
+              </h3>
+
+              {pendingClientsList.length === 0 ? (
+                <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-2xl text-center text-zinc-400 text-sm">
+                  🎉 Badhai ho! Kisi bhi client ka koi paisa pending nahi hai.
+                </div>
+              ) : (
+                pendingClientsList.map((b) => {
+                  const t = calcBookingTotals(b);
+                  const { qrImageUrl } = getUpiAndQrForAmount(t.balanceDue, b.id);
+
+                  return (
+                    <div
+                      key={b.id}
+                      className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4"
+                    >
+                      <div className="flex items-center gap-4">
+                        <img
+                          src={qrImageUrl}
+                          alt="Client QR"
+                          className="w-16 h-16 rounded-lg bg-white p-1 border border-zinc-700"
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs text-amber-400 font-bold">
+                              {b.id}
+                            </span>
+                            <span className="bg-zinc-800 text-[10px] px-2 py-0.5 rounded-full">
+                              {b.stage}
+                            </span>
+                            {b.lastReminderDate && (
+                              <span className="text-[10px] text-emerald-400">
+                                ✓ Last Sent: {b.lastReminderDate}
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="font-bold text-base mt-0.5">{b.clientName}</h4>
+                          <p className="text-xs text-zinc-400">
+                            📞 {b.phone} • {b.eventType} • 📅 {b.eventDate}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <div className="text-right mr-2">
+                          <p className="text-[11px] text-zinc-400">
+                            Total: ₹{t.grandTotal.toLocaleString("en-IN")} | Paid: ₹
+                            {b.advancePaid.toLocaleString("en-IN")}
+                          </p>
+                          <p className="text-base font-extrabold text-amber-400">
+                            Pending: ₹{t.balanceDue.toLocaleString("en-IN")}
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={() => sendAutomatedPaymentReminder(b, "GENTLE")}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition"
+                        >
+                          📲 Send Reminder + QR
+                        </button>
+
+                        <button
+                          onClick={() => sendAutomatedPaymentReminder(b, "READY_DELIVERY")}
+                          className="bg-amber-600/20 hover:bg-amber-600 text-amber-300 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold transition"
+                        >
+                          🎉 &quot;Album Ready&quot; + QR
+                        </button>
+
+                        <button
+                          onClick={() => handleLoadBooking(b)}
+                          className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-3 py-2 rounded-xl text-xs font-semibold"
+                        >
+                          Edit Bill
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
         {/* TAB 1: DASHBOARD */}
         {activeTab === "dashboard" && (
           <div className="space-y-6">
@@ -714,7 +1027,13 @@ export default function SurajStudioBillingERP() {
                   Total Billed, Market Vasooli, Quotations aur Asli Munafa
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setActiveTab("whatsapp")}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold"
+                >
+                  🤖 Pending Vasooli ({pendingClientsList.length})
+                </button>
                 <button
                   onClick={handleExportCSV}
                   className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2.5 rounded-xl text-xs font-semibold"
@@ -750,7 +1069,7 @@ export default function SurajStudioBillingERP() {
                   ₹{totalPending.toLocaleString("en-IN")}
                 </h3>
                 <p className="text-[11px] text-zinc-500 mt-1">
-                   Open Quotations: {estimateList.length}
+                  Open Quotations: {estimateList.length}
                 </p>
               </div>
 
@@ -855,9 +1174,9 @@ export default function SurajStudioBillingERP() {
                               )}
                               <button
                                 onClick={() => handleWhatsAppShare(b)}
-                                className="bg-emerald-600/20 text-emerald-400 px-2.5 py-1 rounded-lg hover:bg-emerald-600 hover:text-white transition"
+                                className="bg-emerald-600/20 text-emerald-400 px-2.5 py-1 rounded-lg hover:bg-emerald-600 hover:text-white transition font-semibold"
                               >
-                                WhatsApp
+                                {t.balanceDue > 0 ? "📲 Send QR Reminder" : "WhatsApp"}
                               </button>
                               <button
                                 onClick={() => handleLoadBooking(b)}
@@ -889,7 +1208,7 @@ export default function SurajStudioBillingERP() {
               <div>
                 <h2 className="text-xl font-bold">Shoots & Album Delivery Pipeline</h2>
                 <p className="text-xs text-zinc-400">
-                  Har wedding aur shoot ka live editing/album status aur Google Drive link
+                  Har wedding aur shoot ka live editing/album status aur Google Drive link (Stage change par Auto-QR Reminder)
                 </p>
               </div>
               <div className="flex gap-2">
@@ -961,18 +1280,16 @@ export default function SurajStudioBillingERP() {
                       <div className="flex flex-wrap items-center gap-3">
                         <div>
                           <label className="text-[10px] text-zinc-400 block mb-1">
-                            Work Stage
+                            Work Stage (Auto-WhatsApp Trigger)
                           </label>
                           <select
                             value={b.stage}
-                            onChange={(e) => {
-                              const updated = bookings.map((item) =>
-                                item.id === b.id
-                                  ? { ...item, stage: e.target.value as PipelineStage }
-                                  : item
-                              );
-                              saveBookingsToStorage(updated);
-                            }}
+                            onChange={(e) =>
+                              handleStageUpdateWithAutomation(
+                                b,
+                                e.target.value as PipelineStage
+                              )
+                            }
                             className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-amber-400 font-semibold"
                           >
                             <option value="Booked">📅 Booked</option>
@@ -996,7 +1313,7 @@ export default function SurajStudioBillingERP() {
                           onClick={() => handleWhatsAppShare(b)}
                           className="bg-emerald-600/20 text-emerald-400 px-3 py-2 rounded-xl text-xs font-semibold hover:bg-emerald-600 hover:text-white"
                         >
-                          WhatsApp Status
+                          {t.balanceDue > 0 ? "📲 Send QR Reminder" : "WhatsApp Status"}
                         </button>
 
                         <button
@@ -1272,7 +1589,7 @@ export default function SurajStudioBillingERP() {
                     type="submit"
                     className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2.5 rounded-xl text-xs"
                   >
-                    💾 Save Record
+                    💾 Save Record & Auto-QR
                   </button>
                   <button
                     type="button"
@@ -1384,7 +1701,9 @@ export default function SurajStudioBillingERP() {
                     className="w-20 h-20 rounded border bg-white p-1"
                   />
                   <div className="text-[11px]">
-                    <p className="font-bold text-zinc-900">Scan to Pay via UPI</p>
+                    <p className="font-bold text-zinc-900">
+                      Scan to Pay ₹{currentTotals.balanceDue.toLocaleString("en-IN")} via UPI
+                    </p>
                     <p className="text-zinc-600">{upiId}</p>
                     <p className="text-zinc-500 mt-1 whitespace-pre-line text-[10px]">
                       {termsText}
@@ -1607,7 +1926,7 @@ export default function SurajStudioBillingERP() {
         {/* TAB 6: STUDIO SETTINGS */}
         {activeTab === "settings" && (
           <div className="max-w-xl bg-zinc-900 border border-zinc-800 p-6 rounded-2xl space-y-4 text-xs">
-            <h3 className="font-bold text-base">Studio Bill Header & UPI Settings</h3>
+            <h3 className="font-bold text-base">Studio Bill Header, UPI & WhatsApp Settings</h3>
             <div>
               <label className="text-zinc-400 block mb-1">Studio Name</label>
               <input
@@ -1637,15 +1956,37 @@ export default function SurajStudioBillingERP() {
                 />
               </div>
               <div>
-                <label className="text-zinc-400 block mb-1">UPI ID (QR Code ke liye)</label>
+                <label className="text-amber-400 font-bold block mb-1">
+                  Asli UPI ID (PhonePe / GPay / Paytm)
+                </label>
                 <input
                   type="text"
+                  placeholder="e.g. 9876543210@ybl"
                   value={upiId}
                   onChange={(e) => setUpiId(e.target.value)}
-                  className="w-full bg-zinc-950 border border-amber-600 rounded-xl px-3 py-2 text-amber-400 font-bold"
+                  className="w-full bg-zinc-950 border border-amber-500 rounded-xl px-3 py-2 text-amber-400 font-bold"
                 />
               </div>
             </div>
+
+            {/* QR Mode Selector */}
+            <label className="bg-zinc-950 border border-zinc-800 p-3.5 rounded-xl flex items-center justify-between cursor-pointer">
+              <div>
+                <p className="font-bold text-white">
+                  Lock Exact Amount in QR (Only for Business/Merchant UPI)
+                </p>
+                <p className="text-[11px] text-zinc-400">
+                  Agar aapka Normal Savings Account UPI hai toh isko OFF rakhein taaki ₹2,000+ ke bill par PhonePe technical issue na de.
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={includeAmountInQr}
+                onChange={(e) => setIncludeAmountInQr(e.target.checked)}
+                className="w-5 h-5 accent-amber-500"
+              />
+            </label>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-zinc-400 block mb-1">Studio Address</label>
@@ -1675,6 +2016,31 @@ export default function SurajStudioBillingERP() {
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2"
               />
             </div>
+
+            {/* Optional Background WhatsApp API Box */}
+            <div className="p-4 bg-emerald-950/30 border border-emerald-800/60 rounded-xl space-y-3">
+              <h4 className="font-bold text-emerald-400 text-sm">
+                🤖 Optional: Background WhatsApp API (UltraMsg / WATI / Webhook)
+              </h4>
+              <p className="text-[11px] text-zinc-400">
+                Agar aap bina WhatsApp tab khole background mein automatic message bhejna chahte hain, toh apna Webhook URL yahan daalein (Khali chhodne par Free WhatsApp Direct chalega):
+              </p>
+              <input
+                type="url"
+                placeholder="https://api.ultramsg.com/instanceXXXX/messages/chat (Optional)"
+                value={waApiWebhookUrl}
+                onChange={(e) => setWaApiWebhookUrl(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2"
+              />
+              <input
+                type="text"
+                placeholder="API Secret Token (Optional)"
+                value={waApiToken}
+                onChange={(e) => setWaApiToken(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2"
+              />
+            </div>
+
             <button
               onClick={saveSettingsToStorage}
               className="bg-amber-600 hover:bg-amber-500 text-white font-semibold px-5 py-2.5 rounded-xl"
