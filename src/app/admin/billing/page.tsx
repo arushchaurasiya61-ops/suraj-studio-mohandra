@@ -103,6 +103,9 @@ export default function SurajStudioBillingERP() {
     "dashboard" | "whatsapp" | "pipeline" | "billing" | "expenses" | "gear" | "settings"
   >("dashboard");
 
+  // --- SAVE NOTIFICATION BANNER ---
+  const [saveToast, setSaveToast] = useState("");
+
   // --- STUDIO SETTINGS ---
   const [studioName, setStudioName] = useState("SURAJ STUDIO MUHANDRA");
   const [studioTagline, setStudioTagline] = useState(
@@ -169,6 +172,11 @@ export default function SurajStudioBillingERP() {
   const [gearStatus, setGearStatus] = useState<"In Studio" | "On Shoot" | "In Repair">("In Studio");
   const [gearAssignedTo, setGearAssignedTo] = useState("");
 
+  const showToastMsg = (msg: string) => {
+    setSaveToast(msg);
+    setTimeout(() => setSaveToast(""), 4000);
+  };
+
   // --- INITIAL LOAD ---
   useEffect(() => {
     if (sessionStorage.getItem("suraj_admin_unlocked") === "true") {
@@ -185,23 +193,31 @@ export default function SurajStudioBillingERP() {
     const savedSettings = localStorage.getItem("suraj_studio_settings_v2");
 
     if (savedSettings) {
-      const parsed = JSON.parse(savedSettings);
-      if (parsed.studioName) setStudioName(parsed.studioName);
-      if (parsed.studioTagline) setStudioTagline(parsed.studioTagline);
-      if (parsed.studioPhone) setStudioPhone(parsed.studioPhone);
-      if (parsed.studioAddress) setStudioAddress(parsed.studioAddress);
-      if (parsed.studioGstin) setStudioGstin(parsed.studioGstin);
-      if (parsed.upiId) setUpiId(parsed.upiId);
-      if (typeof parsed.includeAmountInQr === "boolean") setIncludeAmountInQr(parsed.includeAmountInQr);
-      if (parsed.termsText) setTermsText(parsed.termsText);
-      if (typeof parsed.autoTriggerOnSave === "boolean") setAutoTriggerOnSave(parsed.autoTriggerOnSave);
-      if (typeof parsed.autoTriggerOnStageChange === "boolean") setAutoTriggerOnStageChange(parsed.autoTriggerOnStageChange);
-      if (parsed.waApiWebhookUrl) setWaApiWebhookUrl(parsed.waApiWebhookUrl);
-      if (parsed.waApiToken) setWaApiToken(parsed.waApiToken);
+      try {
+        const parsed = JSON.parse(savedSettings);
+        if (parsed.studioName) setStudioName(parsed.studioName);
+        if (parsed.studioTagline) setStudioTagline(parsed.studioTagline);
+        if (parsed.studioPhone) setStudioPhone(parsed.studioPhone);
+        if (parsed.studioAddress) setStudioAddress(parsed.studioAddress);
+        if (parsed.studioGstin) setStudioGstin(parsed.studioGstin);
+        if (parsed.upiId) setUpiId(parsed.upiId);
+        if (typeof parsed.includeAmountInQr === "boolean") setIncludeAmountInQr(parsed.includeAmountInQr);
+        if (parsed.termsText) setTermsText(parsed.termsText);
+        if (typeof parsed.autoTriggerOnSave === "boolean") setAutoTriggerOnSave(parsed.autoTriggerOnSave);
+        if (typeof parsed.autoTriggerOnStageChange === "boolean") setAutoTriggerOnStageChange(parsed.autoTriggerOnStageChange);
+        if (parsed.waApiWebhookUrl) setWaApiWebhookUrl(parsed.waApiWebhookUrl);
+        if (parsed.waApiToken) setWaApiToken(parsed.waApiToken);
+      } catch (e) {
+        console.error("Settings load error:", e);
+      }
     }
 
     if (savedBookings) {
-      setBookings(JSON.parse(savedBookings));
+      try {
+        setBookings(JSON.parse(savedBookings));
+      } catch {
+        setBookings([]);
+      }
     } else {
       const sample: Booking[] = [
         {
@@ -229,32 +245,17 @@ export default function SurajStudioBillingERP() {
           ],
           notes: "Deliver reel within 5 days.",
         },
-        {
-          id: "EST-2041",
-          docType: "ESTIMATE",
-          clientName: "Vikram Singh",
-          phone: "9123456780",
-          address: "Sagar Road",
-          eventType: "Pre-Wedding + Engagement",
-          eventDate: today,
-          venue: "Orchha Fort",
-          stage: "Booked",
-          driveLink: "",
-          items: [{ desc: "Pre-Wedding Cinematic Package + Drone", qty: 1, rate: 28000 }],
-          gstPercent: 0,
-          discount: 1000,
-          advancePaid: 5000,
-          paymentMode: "UPI / GPay",
-          paymentLogs: [{ date: today, amount: 5000, mode: "UPI / GPay", note: "Token" }],
-          notes: "",
-        },
       ];
       setBookings(sample);
       localStorage.setItem("suraj_studio_bookings_v2", JSON.stringify(sample));
     }
 
     if (savedExpenses) {
-      setExpenses(JSON.parse(savedExpenses));
+      try {
+        setExpenses(JSON.parse(savedExpenses));
+      } catch {
+        setExpenses([]);
+      }
     } else {
       const sampleExp: Expense[] = [
         {
@@ -271,7 +272,11 @@ export default function SurajStudioBillingERP() {
     }
 
     if (savedGear) {
-      setGearList(JSON.parse(savedGear));
+      try {
+        setGearList(JSON.parse(savedGear));
+      } catch {
+        setGearList([]);
+      }
     } else {
       const sampleGear: GearItem[] = [
         { id: "G-1", name: "Sony A7M4 + 24-70mm GM", category: "Camera Body", status: "In Studio", assignedTo: "Suraj" },
@@ -315,6 +320,7 @@ export default function SurajStudioBillingERP() {
       waApiToken,
     };
     localStorage.setItem("suraj_studio_settings_v2", JSON.stringify(data));
+    showToastMsg("✅ Studio Settings & UPI QR Save ho gayi!");
     alert("✅ Studio Settings & UPI QR Save ho gayi!");
   };
 
@@ -367,7 +373,7 @@ export default function SurajStudioBillingERP() {
     mode: "GENTLE" | "READY_DELIVERY" | "URGENT" = "GENTLE"
   ) => {
     const t = calcBookingTotals(b);
-    const cleanPhone = b.phone.replace(/\D/g, "");
+    const cleanPhone = (b.phone || "").replace(/\D/g, "");
     const num = cleanPhone.length === 10 ? "91" + cleanPhone : cleanPhone;
     const { upiDeepLink, qrImageUrl } = getUpiAndQrForAmount(t.balanceDue, b.id);
 
@@ -384,11 +390,11 @@ export default function SurajStudioBillingERP() {
           b.paymentLogs
             .map(
               (l, idx) =>
-                `  ${idx + 1}. ${l.date}: ₹${l.amount.toLocaleString("en-IN")} (${l.mode} - ${l.note})`
+                `  ${idx + 1}. ${l.date}: ₹${Number(l.amount).toLocaleString("en-IN")} (${l.mode}${l.note ? ` - ${l.note}` : ""})`
             )
             .join("\n") +
           `\n`
-        : "";
+        : "\n";
 
     const plainTextMessage =
       `*📸 ${studioName}*\n` +
@@ -411,7 +417,15 @@ export default function SurajStudioBillingERP() {
       )} pay karke screenshot bhej dein. Dhanyawad! 🙏`;
 
     const today = new Date().toISOString().split("T")[0];
-    const updatedBookings = bookings.map((item) =>
+    let currentList: Booking[] = [];
+    try {
+      const raw = localStorage.getItem("suraj_studio_bookings_v2");
+      currentList = raw ? JSON.parse(raw) : [...bookings];
+    } catch {
+      currentList = [...bookings];
+    }
+
+    const updatedBookings = currentList.map((item) =>
       item.id === b.id ? { ...item, lastReminderDate: today } : item
     );
     saveBookingsToStorage(updatedBookings);
@@ -473,30 +487,45 @@ export default function SurajStudioBillingERP() {
     setIsUnlocked(false);
   };
 
-  const handleSaveBooking = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!clientName.trim()) return alert("Client ka naam daalna zaroori hai!");
+  // --- RELIABLE SAVE BOOKING FUNCTION (NO BROWSER BLOCKING) ---
+  const handleSaveBooking = (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) e.preventDefault();
+
+    if (!clientName.trim()) {
+      alert("⚠️ Kripya Client ka Naam zaroor daalein!");
+      return;
+    }
 
     const prefix = docType === "ESTIMATE" ? "EST" : "INV";
+    const oldId = editId;
     let id = editId;
+
     if (!id) {
       id = `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
     } else if (docType === "INVOICE" && id.startsWith("EST-")) {
       id = id.replace("EST-", "INV-");
+    } else if (docType === "ESTIMATE" && id.startsWith("INV-")) {
+      id = id.replace("INV-", "EST-");
     }
+
+    const cleanItems = items.map((it) => ({
+      desc: it.desc || "Photography Service",
+      qty: Number(it.qty) || 1,
+      rate: Number(it.rate) || 0,
+    }));
 
     const newRecord: Booking = {
       id,
       docType,
-      clientName,
-      phone,
+      clientName: clientName.trim(),
+      phone: phone.trim(),
       address,
       eventType,
-      eventDate,
+      eventDate: eventDate || new Date().toISOString().split("T")[0],
       venue,
       stage,
-      driveLink,
-      items,
+      driveLink: driveLink.trim(),
+      items: cleanItems,
       gstPercent: Number(gstPercent) || 0,
       discount: Number(discount) || 0,
       advancePaid: Number(advancePaid) || 0,
@@ -505,19 +534,31 @@ export default function SurajStudioBillingERP() {
       notes,
     };
 
+    let currentList: Booking[] = [];
+    try {
+      const raw = localStorage.getItem("suraj_studio_bookings_v2");
+      currentList = raw ? JSON.parse(raw) : [...bookings];
+    } catch {
+      currentList = [...bookings];
+    }
+
+    const existingIndex = oldId ? currentList.findIndex((b) => b.id === oldId) : -1;
     let updated: Booking[];
-    if (editId) {
-      updated = bookings.map((b) => (b.id === editId ? newRecord : b));
+
+    if (existingIndex >= 0) {
+      updated = [...currentList];
+      updated[existingIndex] = newRecord;
     } else {
-      updated = [newRecord, ...bookings];
+      updated = [newRecord, ...currentList];
     }
 
     saveBookingsToStorage(updated);
     setEditId(id);
+    showToastMsg(`✅ Bill ${id} (${clientName}) Save ho gaya!`);
 
     const totals = calcBookingTotals(newRecord);
     if (autoTriggerOnSave && totals.balanceDue > 0 && phone.trim().length >= 10) {
-      const ask = confirm(
+      const ask = window.confirm(
         `✅ ${id} Save ho gaya!\n\nClient ka ₹${totals.balanceDue.toLocaleString(
           "en-IN"
         )} pending hai. Kya abhi WhatsApp par Bill + QR Code bhejein?`
@@ -526,7 +567,7 @@ export default function SurajStudioBillingERP() {
         sendAutomatedPaymentReminder(newRecord, "GENTLE");
       }
     } else {
-      alert(`✅ ${id} Save ho gaya!`);
+      alert(`✅ ${id} (${clientName}) सफलतापूर्वक Save ho gaya!`);
     }
   };
 
@@ -536,6 +577,7 @@ export default function SurajStudioBillingERP() {
       item.id === b.id ? updatedBooking : item
     );
     saveBookingsToStorage(updatedList);
+    showToastMsg(`✅ ${b.clientName} stage updated to ${newStage}`);
 
     const t = calcBookingTotals(updatedBooking);
     if (
@@ -581,18 +623,22 @@ export default function SurajStudioBillingERP() {
     const updated = bookings.map((item) => (item.id === b.id ? converted : item));
     saveBookingsToStorage(updated);
     handleLoadBooking(converted);
-    alert(`🎉 Estimate ${b.id} ko Final Tax Invoice (${newId}) mein badal diya gaya!`);
+    showToastMsg(`🎉 ${b.id} converted to ${newId}`);
   };
 
   const handleDeleteBooking = (id: string) => {
-    if (!confirm(`Kya aap sach mein ${id} ko delete karna chahte hain?`)) return;
+    if (!window.confirm(`Kya aap sach mein ${id} ko delete karna chahte hain?`)) return;
     saveBookingsToStorage(bookings.filter((b) => b.id !== id));
     if (editId === id) handleResetForm();
+    showToastMsg(`🗑️ ${id} deleted`);
   };
 
   const handleAddInstallment = () => {
     const amt = Number(newInstallmentAmt);
-    if (!amt || amt <= 0) return;
+    if (!amt || amt <= 0) {
+      alert("Kripya Part-Payment ka amount daalein!");
+      return;
+    }
     const today = new Date().toISOString().split("T")[0];
     const newLog: PaymentLog = {
       date: today,
@@ -601,18 +647,42 @@ export default function SurajStudioBillingERP() {
       note: newInstallmentNote || "Part Payment",
     };
     const updatedLogs = [...paymentLogs, newLog];
+    const newTotalPaid = Number(advancePaid) + amt;
+
     setPaymentLogs(updatedLogs);
-    setAdvancePaid(Number(advancePaid) + amt);
+    setAdvancePaid(newTotalPaid);
     setNewInstallmentAmt("");
     setNewInstallmentNote("");
+
+    // Agar pehle se saved bill edit ho raha hai toh turant storage mein bhi update kar do
+    if (editId) {
+      const updatedList = bookings.map((b) =>
+        b.id === editId
+          ? { ...b, paymentLogs: updatedLogs, advancePaid: newTotalPaid }
+          : b
+      );
+      saveBookingsToStorage(updatedList);
+      showToastMsg(`✅ ₹${amt.toLocaleString("en-IN")} Part-Payment jud gaya aur save ho gaya!`);
+    }
   };
 
   const handleRemoveInstallment = (indexToRemove: number) => {
     const removedLog = paymentLogs[indexToRemove];
     const updatedLogs = paymentLogs.filter((_, i) => i !== indexToRemove);
+    const newTotalPaid = removedLog
+      ? Math.max(0, Number(advancePaid) - Number(removedLog.amount))
+      : Number(advancePaid);
+
     setPaymentLogs(updatedLogs);
-    if (removedLog) {
-      setAdvancePaid(Math.max(0, Number(advancePaid) - Number(removedLog.amount)));
+    setAdvancePaid(newTotalPaid);
+
+    if (editId) {
+      const updatedList = bookings.map((b) =>
+        b.id === editId
+          ? { ...b, paymentLogs: updatedLogs, advancePaid: newTotalPaid }
+          : b
+      );
+      saveBookingsToStorage(updatedList);
     }
   };
 
@@ -639,7 +709,7 @@ export default function SurajStudioBillingERP() {
       return;
     }
 
-    const cleanPhone = b.phone.replace(/\D/g, "");
+    const cleanPhone = (b.phone || "").replace(/\D/g, "");
     const num = cleanPhone.length === 10 ? "91" + cleanPhone : cleanPhone;
 
     const msg =
@@ -764,6 +834,7 @@ export default function SurajStudioBillingERP() {
     setExpTitle("");
     setExpAmount("");
     setExpPaidTo("");
+    showToastMsg("✅ Expense recorded!");
   };
 
   const handleAddGear = (e: React.FormEvent) => {
@@ -779,6 +850,7 @@ export default function SurajStudioBillingERP() {
     saveGearToStorage([newGear, ...gearList]);
     setGearName("");
     setGearAssignedTo("");
+    showToastMsg("✅ Gear added to inventory!");
   };
 
   // UPI QR URL for Live Invoice Preview
@@ -827,7 +899,14 @@ export default function SurajStudioBillingERP() {
 
   // --- 2. MAIN STUDIO ERP ---
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col md:flex-row">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col md:flex-row relative">
+      {/* Floating Save Toast Notification */}
+      {saveToast && (
+        <div className="fixed top-5 right-5 z-50 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl font-bold text-xs animate-bounce">
+          {saveToast}
+        </div>
+      )}
+
       {/* Sidebar */}
       <aside className="w-full md:w-64 bg-zinc-900 border-b md:border-b-0 md:border-r border-zinc-800 p-5 flex flex-col justify-between print:hidden">
         <div>
@@ -843,6 +922,7 @@ export default function SurajStudioBillingERP() {
 
           <nav className="mt-5 flex md:flex-col gap-1.5 overflow-x-auto">
             <button
+              type="button"
               onClick={() => setActiveTab("dashboard")}
               className={`px-3.5 py-2.5 rounded-xl text-xs font-semibold text-left transition ${
                 activeTab === "dashboard"
@@ -853,6 +933,7 @@ export default function SurajStudioBillingERP() {
               📊 Dashboard & Reports
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab("whatsapp")}
               className={`px-3.5 py-2.5 rounded-xl text-xs font-semibold text-left transition flex items-center justify-between ${
                 activeTab === "whatsapp"
@@ -866,6 +947,7 @@ export default function SurajStudioBillingERP() {
               </span>
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab("pipeline")}
               className={`px-3.5 py-2.5 rounded-xl text-xs font-semibold text-left transition ${
                 activeTab === "pipeline"
@@ -876,6 +958,7 @@ export default function SurajStudioBillingERP() {
               🎬 Shoots & Delivery Pipeline
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab("billing")}
               className={`px-3.5 py-2.5 rounded-xl text-xs font-semibold text-left transition ${
                 activeTab === "billing"
@@ -886,6 +969,7 @@ export default function SurajStudioBillingERP() {
               🧾 Invoice & Quotation Builder
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab("expenses")}
               className={`px-3.5 py-2.5 rounded-xl text-xs font-semibold text-left transition ${
                 activeTab === "expenses"
@@ -896,6 +980,7 @@ export default function SurajStudioBillingERP() {
               💸 Expenses & Lab Payouts
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab("gear")}
               className={`px-3.5 py-2.5 rounded-xl text-xs font-semibold text-left transition ${
                 activeTab === "gear"
@@ -906,6 +991,7 @@ export default function SurajStudioBillingERP() {
               🎥 Camera & Gear Inventory
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab("settings")}
               className={`px-3.5 py-2.5 rounded-xl text-xs font-semibold text-left transition ${
                 activeTab === "settings"
@@ -920,12 +1006,14 @@ export default function SurajStudioBillingERP() {
 
         <div className="mt-6 pt-4 border-t border-zinc-800 space-y-2 hidden md:block">
           <button
+            type="button"
             onClick={handleExportCSV}
             className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 py-2 rounded-lg text-xs font-semibold transition"
           >
             📥 Export Excel (CSV)
           </button>
           <button
+            type="button"
             onClick={handleLogout}
             className="w-full bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white py-2 rounded-lg text-xs font-semibold transition"
           >
@@ -1059,6 +1147,7 @@ export default function SurajStudioBillingERP() {
                         </div>
 
                         <button
+                          type="button"
                           onClick={() => sendAutomatedPaymentReminder(b, "GENTLE")}
                           className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition"
                         >
@@ -1066,6 +1155,7 @@ export default function SurajStudioBillingERP() {
                         </button>
 
                         <button
+                          type="button"
                           onClick={() => sendAutomatedPaymentReminder(b, "READY_DELIVERY")}
                           className="bg-amber-600/20 hover:bg-amber-600 text-amber-300 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold transition"
                         >
@@ -1073,6 +1163,7 @@ export default function SurajStudioBillingERP() {
                         </button>
 
                         <button
+                          type="button"
                           onClick={() => handleLoadBooking(b)}
                           className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-3 py-2 rounded-xl text-xs font-semibold"
                         >
@@ -1099,18 +1190,21 @@ export default function SurajStudioBillingERP() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <button
+                  type="button"
                   onClick={() => setActiveTab("whatsapp")}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold"
                 >
                   🤖 Pending Vasooli ({pendingClientsList.length})
                 </button>
                 <button
+                  type="button"
                   onClick={handleExportCSV}
                   className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2.5 rounded-xl text-xs font-semibold"
                 >
                   📥 Download Excel
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     handleResetForm();
                     setActiveTab("billing");
@@ -1163,7 +1257,7 @@ export default function SurajStudioBillingERP() {
             {/* All Bookings & Quotations Table */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-                <h3 className="font-bold text-sm">All Invoices & Quotations</h3>
+                <h3 className="font-bold text-sm">All Invoices & Quotations ({bookings.length})</h3>
                 <input
                   type="text"
                   placeholder="Search client ya phone..."
@@ -1235,6 +1329,7 @@ export default function SurajStudioBillingERP() {
                             <td className="py-3 text-right space-x-1.5">
                               {b.docType === "ESTIMATE" && (
                                 <button
+                                  type="button"
                                   onClick={() => handleConvertEstimateToInvoice(b)}
                                   className="bg-purple-600/20 text-purple-300 px-2 py-1 rounded-lg hover:bg-purple-600 hover:text-white transition"
                                   title="Convert Estimate to Final Invoice"
@@ -1243,18 +1338,21 @@ export default function SurajStudioBillingERP() {
                                 </button>
                               )}
                               <button
+                                type="button"
                                 onClick={() => handleWhatsAppShare(b)}
                                 className="bg-emerald-600/20 text-emerald-400 px-2.5 py-1 rounded-lg hover:bg-emerald-600 hover:text-white transition font-semibold"
                               >
                                 {t.balanceDue > 0 ? "📲 Send QR Reminder" : "WhatsApp"}
                               </button>
                               <button
+                                type="button"
                                 onClick={() => handleLoadBooking(b)}
                                 className="bg-zinc-800 text-zinc-200 px-2.5 py-1 rounded-lg hover:bg-zinc-700"
                               >
                                 Edit / Print
                               </button>
                               <button
+                                type="button"
                                 onClick={() => handleDeleteBooking(b.id)}
                                 className="text-rose-400 hover:text-rose-300 px-1.5"
                               >
@@ -1380,6 +1478,7 @@ export default function SurajStudioBillingERP() {
                         </div>
 
                         <button
+                          type="button"
                           onClick={() => handleWhatsAppShare(b)}
                           className="bg-emerald-600/20 text-emerald-400 px-3 py-2 rounded-xl text-xs font-semibold hover:bg-emerald-600 hover:text-white"
                         >
@@ -1387,6 +1486,7 @@ export default function SurajStudioBillingERP() {
                         </button>
 
                         <button
+                          type="button"
                           onClick={() => handleLoadBooking(b)}
                           className="bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded-xl text-xs font-semibold"
                         >
@@ -1410,6 +1510,7 @@ export default function SurajStudioBillingERP() {
                   {editId ? `Editing ${editId}` : "Naya Invoice / Quotation"}
                 </h3>
                 <button
+                  type="button"
                   onClick={handleResetForm}
                   className="text-xs bg-zinc-800 px-2.5 py-1 rounded-lg text-zinc-300 hover:text-white"
                 >
@@ -1436,7 +1537,7 @@ export default function SurajStudioBillingERP() {
                 </div>
               </div>
 
-              <form onSubmit={handleSaveBooking} className="space-y-3">
+              <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-2">
                   <select
                     value={docType}
@@ -1462,7 +1563,6 @@ export default function SurajStudioBillingERP() {
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
                     className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs"
-                    required
                   />
                   <input
                     type="tel"
@@ -1470,7 +1570,6 @@ export default function SurajStudioBillingERP() {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs"
-                    required
                   />
                 </div>
 
@@ -1507,7 +1606,7 @@ export default function SurajStudioBillingERP() {
                   </select>
 
                   <input
-                    type="url"
+                    type="text"
                     placeholder="Google Drive Link (Optional)"
                     value={driveLink}
                     onChange={(e) => setDriveLink(e.target.value)}
@@ -1640,7 +1739,7 @@ export default function SurajStudioBillingERP() {
                   <button
                     type="button"
                     onClick={handleAddInstallment}
-                    className="w-full bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white py-1 rounded-lg text-xs font-semibold transition"
+                    className="w-full bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer"
                   >
                     + Add to Paid Amount
                   </button>
@@ -1658,7 +1757,7 @@ export default function SurajStudioBillingERP() {
                           </span>
                           <div className="flex items-center gap-2">
                             <span className="text-emerald-400 font-bold">
-                              ₹{log.amount.toLocaleString("en-IN")}
+                              ₹{Number(log.amount).toLocaleString("en-IN")}
                             </span>
                             <button
                               type="button"
@@ -1685,20 +1784,21 @@ export default function SurajStudioBillingERP() {
 
                 <div className="flex flex-wrap gap-2 pt-2">
                   <button
-                    type="submit"
-                    className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2.5 rounded-xl text-xs"
+                    type="button"
+                    onClick={handleSaveBooking}
+                    className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2.5 rounded-xl text-xs cursor-pointer shadow-lg"
                   >
                     💾 Save Record & Auto-QR
                   </button>
                   <button
                     type="button"
                     onClick={handlePrintCleanInvoice}
-                    className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2.5 rounded-xl text-xs font-semibold"
+                    className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2.5 rounded-xl text-xs font-semibold cursor-pointer"
                   >
                     🖨️ Print / Save PDF
                   </button>
                 </div>
-              </form>
+              </div>
             </div>
 
             {/* Right Live A4 Printable Invoice */}
@@ -1796,7 +1896,7 @@ export default function SurajStudioBillingERP() {
                   </div>
                 </div>
 
-                {/* Totals + Vertical Installment Breakdown Under Grand Total */}
+                {/* Totals + Vertical Installment Breakdown Directly Under Grand Total */}
                 <div className="space-y-1.5 text-xs">
                   <div className="flex justify-between">
                     <span className="text-zinc-600">Subtotal:</span>
@@ -1821,7 +1921,7 @@ export default function SurajStudioBillingERP() {
 
                   {/* VERTICAL PART-PAYMENTS LIST DIRECTLY BELOW GRAND TOTAL */}
                   {paymentLogs.length > 0 && (
-                    <div className="my-2 pl-2.5 border-l-2 border-emerald-500 bg-emerald-50/60 py-1.5 pr-2 rounded-r-lg space-y-1">
+                    <div className="my-2 pl-2.5 border-l-2 border-emerald-500 bg-emerald-50/70 py-1.5 pr-2 rounded-r-lg space-y-1">
                       <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
                         Part-Payments Received:
                       </p>
@@ -1930,6 +2030,7 @@ export default function SurajStudioBillingERP() {
                         - ₹{ex.amount.toLocaleString("en-IN")}
                       </span>
                       <button
+                        type="button"
                         onClick={() =>
                           saveExpensesToStorage(expenses.filter((i) => i.id !== ex.id))
                         }
@@ -2018,6 +2119,7 @@ export default function SurajStudioBillingERP() {
                         <option value="In Repair">🔧 In Repair</option>
                       </select>
                       <button
+                        type="button"
                         onClick={() =>
                           saveGearToStorage(gearList.filter((i) => i.id !== g.id))
                         }
@@ -2136,7 +2238,7 @@ export default function SurajStudioBillingERP() {
                 Agar aap bina WhatsApp tab khole background mein automatic message bhejna chahte hain, toh apna Webhook URL yahan daalein (Khali chhodne par Free WhatsApp Direct chalega):
               </p>
               <input
-                type="url"
+                type="text"
                 placeholder="https://api.ultramsg.com/instanceXXXX/messages/chat (Optional)"
                 value={waApiWebhookUrl}
                 onChange={(e) => setWaApiWebhookUrl(e.target.value)}
@@ -2152,8 +2254,9 @@ export default function SurajStudioBillingERP() {
             </div>
 
             <button
+              type="button"
               onClick={saveSettingsToStorage}
-              className="bg-amber-600 hover:bg-amber-500 text-white font-semibold px-5 py-2.5 rounded-xl"
+              className="bg-amber-600 hover:bg-amber-500 text-white font-semibold px-5 py-2.5 rounded-xl cursor-pointer"
             >
               💾 Save Studio Settings
             </button>
