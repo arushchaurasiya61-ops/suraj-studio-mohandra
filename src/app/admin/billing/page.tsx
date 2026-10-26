@@ -108,11 +108,11 @@ export default function SurajStudioBillingERP() {
   const [studioTagline, setStudioTagline] = useState(
     "Wedding Photography • Cinematic Films • Drone & Album Lab"
   );
-  const [studioPhone, setStudioPhone] = useState("+91 98765 43210");
-  const [studioAddress, setStudioAddress] = useState("Main Market, Muhandra, MP");
+  const [studioPhone, setStudioPhone] = useState("+91 9752375522");
+  const [studioAddress, setStudioAddress] = useState("Pawai Road, Muhandra, MP");
   const [studioGstin, setStudioGstin] = useState("");
-  const [upiId, setUpiId] = useState("surajstudio@ybl"); // Settings tab se apni asli UPI ID zaroor daalein
-  const [includeAmountInQr, setIncludeAmountInQr] = useState(false); // Normal Saving UPI ke liye false best hai
+  const [upiId, setUpiId] = useState("9752375522@ybl");
+  const [includeAmountInQr, setIncludeAmountInQr] = useState(false);
   const [termsText, setTermsText] = useState(
     "1. 50% Advance mandatory for booking confirmation.\n2. Remaining balance to be cleared before raw data/album delivery.\n3. Photo selection must be completed within 15 days of shoot."
   );
@@ -347,7 +347,6 @@ export default function SurajStudioBillingERP() {
     const cleanUpi = upiId.trim();
     const cleanName = studioName.replace(/[^a-zA-Z0-9 ]/g, "").trim() || "Suraj Studio";
 
-    // Agar Merchant UPI hai aur switch ON hai tabhi amount daalo, warna Universal QR banao jo kabhi fail na ho
     const amtParam =
       includeAmountInQr && amount > 0 ? `&am=${Number(amount).toFixed(2)}` : "";
 
@@ -379,6 +378,18 @@ export default function SurajStudioBillingERP() {
       headerLine = `🔔 *Payment Reminder:* Namaste *${b.clientName}* ji, aapke shoot ka balance payment abhi pending hai.`;
     }
 
+    const installmentLines =
+      b.paymentLogs && b.paymentLogs.length > 0
+        ? `\n*Part-Payments Received:*\n` +
+          b.paymentLogs
+            .map(
+              (l, idx) =>
+                `  ${idx + 1}. ${l.date}: ₹${l.amount.toLocaleString("en-IN")} (${l.mode} - ${l.note})`
+            )
+            .join("\n") +
+          `\n`
+        : "";
+
     const plainTextMessage =
       `*📸 ${studioName}*\n` +
       `--------------------------------\n` +
@@ -386,8 +397,9 @@ export default function SurajStudioBillingERP() {
       `🧾 *Bill No:* ${b.id}\n` +
       `📅 *Event Date:* ${b.eventDate}\n` +
       `📌 *Work Status:* ${b.stage}\n\n` +
-      `💰 *Total Package:* ₹${t.grandTotal.toLocaleString("en-IN")}\n` +
-      `✅ *Paid Amount:* ₹${b.advancePaid.toLocaleString("en-IN")}\n` +
+      `💰 *Grand Total:* ₹${t.grandTotal.toLocaleString("en-IN")}` +
+      `${installmentLines}` +
+      `✅ *Total Paid:* ₹${b.advancePaid.toLocaleString("en-IN")}\n` +
       `⏳ *PENDING BALANCE:* *₹${t.balanceDue.toLocaleString("en-IN")}*\n` +
       `--------------------------------\n` +
       `💳 *UPI ID:* ${upiId.trim()}\n\n` +
@@ -398,14 +410,12 @@ export default function SurajStudioBillingERP() {
         "en-IN"
       )} pay karke screenshot bhej dein. Dhanyawad! 🙏`;
 
-    // 1. Mark last reminder date
     const today = new Date().toISOString().split("T")[0];
     const updatedBookings = bookings.map((item) =>
       item.id === b.id ? { ...item, lastReminderDate: today } : item
     );
     saveBookingsToStorage(updatedBookings);
 
-    // 2. If Background WhatsApp API Webhook is configured, send automatically in background!
     if (waApiWebhookUrl.trim()) {
       try {
         await fetch(waApiWebhookUrl, {
@@ -429,7 +439,6 @@ export default function SurajStudioBillingERP() {
       }
     }
 
-    // 3. Free Instant WhatsApp Direct Launch with QR Code & Pending Amount
     const encodedMsg = encodeURIComponent(plainTextMessage);
     window.open(`https://wa.me/${num}?text=${encodedMsg}`, "_blank");
   };
@@ -598,6 +607,15 @@ export default function SurajStudioBillingERP() {
     setNewInstallmentNote("");
   };
 
+  const handleRemoveInstallment = (indexToRemove: number) => {
+    const removedLog = paymentLogs[indexToRemove];
+    const updatedLogs = paymentLogs.filter((_, i) => i !== indexToRemove);
+    setPaymentLogs(updatedLogs);
+    if (removedLog) {
+      setAdvancePaid(Math.max(0, Number(advancePaid) - Number(removedLog.amount)));
+    }
+  };
+
   const handleResetForm = () => {
     setEditId(null);
     setDocType("INVOICE");
@@ -638,6 +656,58 @@ export default function SurajStudioBillingERP() {
       `%0ADhanyawad! 🙏`;
 
     window.open(`https://wa.me/${num}?text=${msg}`, "_blank");
+  };
+
+  // --- 100% CLEAN SINGLE-PAGE A4 PRINT / PDF FUNCTION (NO WEBSITE OVERLAP) ---
+  const handlePrintCleanInvoice = () => {
+    const printElement = document.getElementById("printable-invoice-area");
+    if (!printElement) return;
+
+    const printWindow = window.open("", "_blank", "width=900,height=800");
+    if (!printWindow) {
+      alert("Pop-up blocked! Kripya browser mein pop-up allow karein.");
+      return;
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${editId || "Invoice"} - ${clientName || "Suraj Studio"}</title>
+          <script src="https://cdn.tailwindcss.com"></script>
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 10mm;
+            }
+            body {
+              background: #ffffff !important;
+              color: #18181b !important;
+              font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              margin: 0;
+              padding: 0;
+            }
+          </style>
+        </head>
+        <body class="p-4 bg-white">
+          <div class="max-w-[210mm] mx-auto bg-white">
+            ${printElement.innerHTML}
+          </div>
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.focus();
+                window.print();
+                window.close();
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   // Export CSV (CA / Excel)
@@ -711,7 +781,7 @@ export default function SurajStudioBillingERP() {
     setGearAssignedTo("");
   };
 
-  // UPI QR URL for Live Invoice Preview (Using Fixed Generator)
+  // UPI QR URL for Live Invoice Preview
   const { qrImageUrl: qrCodeImg } = getUpiAndQrForAmount(
     currentTotals.balanceDue,
     editId || "INV"
@@ -1333,7 +1403,7 @@ export default function SurajStudioBillingERP() {
         {/* TAB 3: BILLING & QUOTATION BUILDER */}
         {activeTab === "billing" && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left Form (Hidden on Print) */}
+            {/* Left Form */}
             <div className="lg:col-span-5 bg-zinc-900 border border-zinc-800 p-5 rounded-2xl space-y-4 print:hidden">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-base">
@@ -1574,6 +1644,35 @@ export default function SurajStudioBillingERP() {
                   >
                     + Add to Paid Amount
                   </button>
+
+                  {/* Show added installments in form with delete option */}
+                  {paymentLogs.length > 0 && (
+                    <div className="pt-2 space-y-1 border-t border-zinc-800/80 text-[11px]">
+                      {paymentLogs.map((log, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between bg-zinc-900 px-2.5 py-1 rounded text-zinc-300"
+                        >
+                          <span>
+                            {index + 1}. {log.date} ({log.mode} - {log.note})
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-400 font-bold">
+                              ₹{log.amount.toLocaleString("en-IN")}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveInstallment(index)}
+                              className="text-rose-400 hover:text-rose-300 font-bold"
+                              title="Remove installment"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <input
@@ -1593,7 +1692,7 @@ export default function SurajStudioBillingERP() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => window.print()}
+                    onClick={handlePrintCleanInvoice}
                     className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2.5 rounded-xl text-xs font-semibold"
                   >
                     🖨️ Print / Save PDF
@@ -1603,7 +1702,10 @@ export default function SurajStudioBillingERP() {
             </div>
 
             {/* Right Live A4 Printable Invoice */}
-            <div className="lg:col-span-7 bg-white text-zinc-900 p-8 rounded-2xl shadow-2xl print:shadow-none print:p-0">
+            <div
+              id="printable-invoice-area"
+              className="lg:col-span-7 bg-white text-zinc-900 p-8 rounded-2xl shadow-2xl"
+            >
               <div className="flex justify-between items-start border-b-2 border-zinc-900 pb-5">
                 <div>
                   <span className="bg-amber-500 text-white text-[10px] font-bold px-2.5 py-1 rounded uppercase">
@@ -1670,35 +1772,18 @@ export default function SurajStudioBillingERP() {
                 </tbody>
               </table>
 
-              {/* Payment History Log on Invoice */}
-              {paymentLogs.length > 0 && (
-                <div className="mb-5 bg-zinc-50 border border-zinc-200 p-3 rounded-xl text-[11px]">
-                  <p className="font-bold text-zinc-700 mb-1">Payment Installments Received:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {paymentLogs.map((log, index) => (
-                      <span
-                        key={index}
-                        className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-2 py-0.5 rounded"
-                      >
-                        {log.date}: ₹{log.amount.toLocaleString("en-IN")} ({log.mode} - {log.note})
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {notes && (
                 <p className="text-xs italic text-zinc-600 mb-4">
                   <strong>Note:</strong> {notes}
                 </p>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center border-t-2 border-zinc-900 pt-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start border-t-2 border-zinc-900 pt-5">
                 <div className="flex items-center gap-3 bg-zinc-100 p-3 rounded-xl">
                   <img
                     src={qrCodeImg}
                     alt="UPI QR"
-                    className="w-20 h-20 rounded border bg-white p-1"
+                    className="w-20 h-20 rounded border bg-white p-1 shrink-0"
                   />
                   <div className="text-[11px]">
                     <p className="font-bold text-zinc-900">
@@ -1711,6 +1796,7 @@ export default function SurajStudioBillingERP() {
                   </div>
                 </div>
 
+                {/* Totals + Vertical Installment Breakdown Under Grand Total */}
                 <div className="space-y-1.5 text-xs">
                   <div className="flex justify-between">
                     <span className="text-zinc-600">Subtotal:</span>
@@ -1732,7 +1818,31 @@ export default function SurajStudioBillingERP() {
                     <span>Grand Total:</span>
                     <span>₹{currentTotals.grandTotal.toLocaleString("en-IN")}</span>
                   </div>
-                  <div className="flex justify-between text-emerald-700 font-bold">
+
+                  {/* VERTICAL PART-PAYMENTS LIST DIRECTLY BELOW GRAND TOTAL */}
+                  {paymentLogs.length > 0 && (
+                    <div className="my-2 pl-2.5 border-l-2 border-emerald-500 bg-emerald-50/60 py-1.5 pr-2 rounded-r-lg space-y-1">
+                      <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
+                        Part-Payments Received:
+                      </p>
+                      {paymentLogs.map((log, index) => (
+                        <div
+                          key={index}
+                          className="flex justify-between items-center text-[11px] text-emerald-900 border-b border-emerald-200/60 last:border-none pb-0.5 last:pb-0"
+                        >
+                          <span>
+                            {index + 1}. {log.date} ({log.mode}
+                            {log.note ? ` - ${log.note}` : ""})
+                          </span>
+                          <span className="font-bold">
+                            - ₹{Number(log.amount).toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex justify-between text-emerald-700 font-bold pt-0.5">
                     <span>Total Paid:</span>
                     <span>₹{Number(advancePaid).toLocaleString("en-IN")}</span>
                   </div>
@@ -1961,7 +2071,7 @@ export default function SurajStudioBillingERP() {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. 9876543210@ybl"
+                  placeholder="e.g. 9752375522@ybl"
                   value={upiId}
                   onChange={(e) => setUpiId(e.target.value)}
                   className="w-full bg-zinc-950 border border-amber-500 rounded-xl px-3 py-2 text-amber-400 font-bold"
