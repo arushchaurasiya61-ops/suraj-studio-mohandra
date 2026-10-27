@@ -27,6 +27,15 @@ interface PaymentLog {
   note: string;
 }
 
+interface SubEvent {
+  name: string;
+  date: string;
+  time: string;
+  venue: string;
+  crewName: string;
+  crewPhone: string;
+}
+
 interface Booking {
   id: string;
   docType: "INVOICE" | "ESTIMATE";
@@ -46,6 +55,15 @@ interface Booking {
   paymentLogs: PaymentLog[];
   notes: string;
   lastReminderDate?: string;
+  // Pro Photography Studio Extensions
+  hddLabel?: string;
+  folderPath?: string;
+  dataSizeGb?: string;
+  includedSheets?: number;
+  actualSheets?: number;
+  extraSheetRate?: number;
+  giftsChecklist?: string[];
+  subEvents?: SubEvent[];
 }
 
 interface Expense {
@@ -55,6 +73,7 @@ interface Expense {
   date: string;
   amount: number;
   paidTo: string;
+  totalAgreed?: number;
 }
 
 interface GearItem {
@@ -63,6 +82,17 @@ interface GearItem {
   category: string;
   status: "In Studio" | "On Shoot" | "In Repair";
   assignedTo: string;
+}
+
+interface LeadInquiry {
+  id: string;
+  clientName: string;
+  phone: string;
+  eventType: string;
+  eventDate: string;
+  budget: number;
+  status: "New Inquiry" | "Follow-up" | "Converted" | "Lost";
+  notes: string;
 }
 
 // Pre-built Studio Packages for 1-Click Add
@@ -91,6 +121,14 @@ const QUICK_PACKAGES = [
   },
 ];
 
+const DEFAULT_GIFTS = [
+  "Photo Frame 12x18",
+  "Table Calendar",
+  "64GB Pendrive",
+  "Instagram Reel",
+  "Mini Pocket Book",
+];
+
 export default function SurajStudioBillingERP() {
   // --- AUTH STATE ---
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -100,7 +138,15 @@ export default function SurajStudioBillingERP() {
 
   // --- NAVIGATION ---
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "whatsapp" | "pipeline" | "billing" | "expenses" | "gear" | "settings"
+    | "dashboard"
+    | "whatsapp"
+    | "pipeline"
+    | "calendar"
+    | "billing"
+    | "leads"
+    | "expenses"
+    | "gear"
+    | "settings"
   >("dashboard");
 
   // --- SAVE NOTIFICATION BANNER ---
@@ -134,6 +180,7 @@ export default function SurajStudioBillingERP() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [gearList, setGearList] = useState<GearItem[]>([]);
+  const [leads, setLeads] = useState<LeadInquiry[]>([]);
 
   // --- BILLING FORM STATE ---
   const [editId, setEditId] = useState<string | null>(null);
@@ -159,11 +206,28 @@ export default function SurajStudioBillingERP() {
   const [newInstallmentNote, setNewInstallmentNote] = useState("");
   const [notes, setNotes] = useState("");
 
-  // --- EXPENSE FORM STATE ---
+  // Pro Studio Form Fields (HDD, Album Sheets, Gifts, Sub-Events)
+  const [hddLabel, setHddLabel] = useState("");
+  const [folderPath, setFolderPath] = useState("");
+  const [dataSizeGb, setDataSizeGb] = useState("");
+  const [includedSheets, setIncludedSheets] = useState(40);
+  const [actualSheets, setActualSheets] = useState(40);
+  const [extraSheetRate, setExtraSheetRate] = useState(250);
+  const [giftsChecklist, setGiftsChecklist] = useState<string[]>(["Photo Frame 12x18"]);
+  const [subEvents, setSubEvents] = useState<SubEvent[]>([]);
+  const [subEventName, setSubEventName] = useState("Haldi & Mehendi");
+  const [subEventDate, setSubEventDate] = useState("");
+  const [subEventTime, setSubEventTime] = useState("10:00 AM");
+  const [subEventVenue, setSubEventVenue] = useState("");
+  const [subEventCrew, setSubEventCrew] = useState("");
+  const [subEventCrewPhone, setSubEventCrewPhone] = useState("");
+
+  // --- EXPENSE & KHATA FORM STATE ---
   const [expTitle, setExpTitle] = useState("");
   const [expCategory, setExpCategory] = useState("Album Printing Lab");
   const [expDate, setExpDate] = useState("");
   const [expAmount, setExpAmount] = useState("");
+  const [expTotalAgreed, setExpTotalAgreed] = useState("");
   const [expPaidTo, setExpPaidTo] = useState("");
 
   // --- GEAR FORM STATE ---
@@ -171,6 +235,14 @@ export default function SurajStudioBillingERP() {
   const [gearCategory, setGearCategory] = useState("Camera Body");
   const [gearStatus, setGearStatus] = useState<"In Studio" | "On Shoot" | "In Repair">("In Studio");
   const [gearAssignedTo, setGearAssignedTo] = useState("");
+
+  // --- LEAD / INQUIRY FORM STATE ---
+  const [leadName, setLeadName] = useState("");
+  const [leadPhone, setLeadPhone] = useState("");
+  const [leadEvent, setLeadEvent] = useState("Wedding Shoot Package");
+  const [leadDate, setLeadDate] = useState("");
+  const [leadBudget, setLeadBudget] = useState("");
+  const [leadNotes, setLeadNotes] = useState("");
 
   const showToastMsg = (msg: string) => {
     setSaveToast(msg);
@@ -186,10 +258,13 @@ export default function SurajStudioBillingERP() {
     const today = new Date().toISOString().split("T")[0];
     setEventDate(today);
     setExpDate(today);
+    setSubEventDate(today);
+    setLeadDate(today);
 
     const savedBookings = localStorage.getItem("suraj_studio_bookings_v2");
     const savedExpenses = localStorage.getItem("suraj_studio_expenses_v2");
     const savedGear = localStorage.getItem("suraj_studio_gear_v2");
+    const savedLeads = localStorage.getItem("suraj_studio_leads_v2");
     const savedSettings = localStorage.getItem("suraj_studio_settings_v2");
 
     if (savedSettings) {
@@ -244,6 +319,23 @@ export default function SurajStudioBillingERP() {
             { date: today, amount: 20000, mode: "Cash", note: "Shoot Day Payment" },
           ],
           notes: "Deliver reel within 5 days.",
+          hddLabel: "WD Hard Disk #2",
+          folderPath: "D:/2026_Weddings/Rahul_Priya",
+          dataSizeGb: "165 GB",
+          includedSheets: 40,
+          actualSheets: 45,
+          extraSheetRate: 250,
+          giftsChecklist: ["Photo Frame 12x18", "64GB Pendrive", "Instagram Reel"],
+          subEvents: [
+            {
+              name: "Haldi & Sangeet",
+              date: today,
+              time: "04:00 PM",
+              venue: "Royal Palace",
+              crewName: "Aman (Candid + Drone)",
+              crewPhone: "9876543210",
+            },
+          ],
         },
       ];
       setBookings(sample);
@@ -264,6 +356,7 @@ export default function SurajStudioBillingERP() {
           category: "Freelancer Payout",
           date: today,
           amount: 4500,
+          totalAgreed: 6000,
           paidTo: "Aman Drone Pilot",
         },
       ];
@@ -286,6 +379,29 @@ export default function SurajStudioBillingERP() {
       setGearList(sampleGear);
       localStorage.setItem("suraj_studio_gear_v2", JSON.stringify(sampleGear));
     }
+
+    if (savedLeads) {
+      try {
+        setLeads(JSON.parse(savedLeads));
+      } catch {
+        setLeads([]);
+      }
+    } else {
+      const sampleLeads: LeadInquiry[] = [
+        {
+          id: "LEAD-1",
+          clientName: "Deepak Tiwari",
+          phone: "9123456789",
+          eventType: "Full Wedding + Pre-Wedding",
+          eventDate: today,
+          budget: 55000,
+          status: "Follow-up",
+          notes: "Wants acrylic album sample on Sunday",
+        },
+      ];
+      setLeads(sampleLeads);
+      localStorage.setItem("suraj_studio_leads_v2", JSON.stringify(sampleLeads));
+    }
   }, []);
 
   // --- STORAGE HELPERS ---
@@ -302,6 +418,11 @@ export default function SurajStudioBillingERP() {
   const saveGearToStorage = (updated: GearItem[]) => {
     setGearList(updated);
     localStorage.setItem("suraj_studio_gear_v2", JSON.stringify(updated));
+  };
+
+  const saveLeadsToStorage = (updated: LeadInquiry[]) => {
+    setLeads(updated);
+    localStorage.setItem("suraj_studio_leads_v2", JSON.stringify(updated));
   };
 
   const saveSettingsToStorage = () => {
@@ -322,6 +443,44 @@ export default function SurajStudioBillingERP() {
     localStorage.setItem("suraj_studio_settings_v2", JSON.stringify(data));
     showToastMsg("✅ Studio Settings & UPI QR Save ho gayi!");
     alert("✅ Studio Settings & UPI QR Save ho gayi!");
+  };
+
+  // --- FULL JSON BACKUP & RESTORE (FOR PC TO PHONE SYNC) ---
+  const handleDownloadFullBackup = () => {
+    const fullBackup = {
+      bookings,
+      expenses,
+      gearList,
+      leads,
+      exportedAt: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(fullBackup, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Suraj_Studio_Full_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToastMsg("📦 Full Studio Backup Downloaded!");
+  };
+
+  const handleRestoreFullBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string);
+        if (Array.isArray(parsed.bookings)) saveBookingsToStorage(parsed.bookings);
+        if (Array.isArray(parsed.expenses)) saveExpensesToStorage(parsed.expenses);
+        if (Array.isArray(parsed.gearList)) saveGearToStorage(parsed.gearList);
+        if (Array.isArray(parsed.leads)) saveLeadsToStorage(parsed.leads);
+        alert("🎉 Studio Backup सफलतापूर्वक Restore ho gaya!");
+      } catch {
+        alert("❌ Invalid backup file!");
+      }
+    };
+    reader.readAsText(file);
   };
 
   // --- CALCULATIONS ---
@@ -347,6 +506,26 @@ export default function SurajStudioBillingERP() {
     discount,
     advancePaid,
   });
+
+  // Extra Album Sheets Auto-Add to Bill Items
+  const extraSheetsCount = Math.max(0, Number(actualSheets) - Number(includedSheets));
+  const extraSheetsCost = extraSheetsCount * (Number(extraSheetRate) || 0);
+
+  const handleAddExtraSheetsToBill = () => {
+    if (extraSheetsCount <= 0) {
+      alert("Actual sheets included sheets se zyada honi chahiye!");
+      return;
+    }
+    setItems([
+      ...items,
+      {
+        desc: `Extra Album Sheets (${extraSheetsCount} Extra Sheets @ ₹${extraSheetRate}/sheet)`,
+        qty: extraSheetsCount,
+        rate: Number(extraSheetRate),
+      },
+    ]);
+    showToastMsg(`➕ ${extraSheetsCount} Extra Sheets (₹${extraSheetsCost}) Bill mein jud gayi!`);
+  };
 
   // --- 100% WORKING NPCI STANDARD UPI QR GENERATOR ---
   const getUpiAndQrForAmount = (amount: number, billId: string) => {
@@ -457,6 +636,25 @@ export default function SurajStudioBillingERP() {
     window.open(`https://wa.me/${num}?text=${encodedMsg}`, "_blank");
   };
 
+  // Send Crew Duty Call Sheet on WhatsApp
+  const handleSendCrewWhatsAppDuty = (b: Booking, ev: SubEvent) => {
+    const cleanPhone = (ev.crewPhone || "").replace(/\D/g, "");
+    const num = cleanPhone.length === 10 ? "91" + cleanPhone : cleanPhone;
+    const msg =
+      `*🎬 SHOOT DUTY SHEET - ${studioName}*\n` +
+      `--------------------------------\n` +
+      `👤 *Cameraman/Crew:* ${ev.crewName}\n` +
+      `🎉 *Client:* ${b.clientName} (${b.id})\n` +
+      `📞 *Client Phone:* ${b.phone}\n` +
+      `📌 *Function:* ${ev.name}\n` +
+      `📅 *Date & Time:* ${ev.date} at ${ev.time}\n` +
+      `📍 *Venue:* ${ev.venue || b.venue || "As per client"}\n` +
+      `--------------------------------\n` +
+      `Kripya time se 30 min pehle venue par pahunchein! 📸`;
+
+    window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, "_blank");
+  };
+
   // Dashboard Metrics
   const invoiceList = bookings.filter((b) => b.docType === "INVOICE");
   const estimateList = bookings.filter((b) => b.docType === "ESTIMATE");
@@ -468,6 +666,12 @@ export default function SurajStudioBillingERP() {
   const totalPending = invoiceList.reduce((s, b) => s + calcBookingTotals(b).balanceDue, 0);
   const totalExp = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
   const netProfit = totalCollected - totalExp;
+
+  // Detect Double Booked Dates
+  const dateCounts: Record<string, number> = {};
+  bookings.forEach((b) => {
+    if (b.eventDate) dateCounts[b.eventDate] = (dateCounts[b.eventDate] || 0) + 1;
+  });
 
   // --- HANDLERS ---
   const handleLogin = (e: React.FormEvent) => {
@@ -487,7 +691,7 @@ export default function SurajStudioBillingERP() {
     setIsUnlocked(false);
   };
 
-  // --- RELIABLE SAVE BOOKING FUNCTION (NO BROWSER BLOCKING) ---
+  // --- RELIABLE SAVE BOOKING FUNCTION ---
   const handleSaveBooking = (e?: React.FormEvent | React.MouseEvent) => {
     if (e) e.preventDefault();
 
@@ -532,6 +736,14 @@ export default function SurajStudioBillingERP() {
       paymentMode,
       paymentLogs,
       notes,
+      hddLabel,
+      folderPath,
+      dataSizeGb,
+      includedSheets: Number(includedSheets) || 40,
+      actualSheets: Number(actualSheets) || 40,
+      extraSheetRate: Number(extraSheetRate) || 250,
+      giftsChecklist,
+      subEvents,
     };
 
     let currentList: Booking[] = [];
@@ -610,6 +822,14 @@ export default function SurajStudioBillingERP() {
     setPaymentMode(b.paymentMode || "UPI / GPay");
     setPaymentLogs(b.paymentLogs || []);
     setNotes(b.notes || "");
+    setHddLabel(b.hddLabel || "");
+    setFolderPath(b.folderPath || "");
+    setDataSizeGb(b.dataSizeGb || "");
+    setIncludedSheets(b.includedSheets ?? 40);
+    setActualSheets(b.actualSheets ?? 40);
+    setExtraSheetRate(b.extraSheetRate ?? 250);
+    setGiftsChecklist(b.giftsChecklist || []);
+    setSubEvents(b.subEvents || []);
     setActiveTab("billing");
   };
 
@@ -654,7 +874,6 @@ export default function SurajStudioBillingERP() {
     setNewInstallmentAmt("");
     setNewInstallmentNote("");
 
-    // Agar pehle se saved bill edit ho raha hai toh turant storage mein bhi update kar do
     if (editId) {
       const updatedList = bookings.map((b) =>
         b.id === editId
@@ -686,6 +905,30 @@ export default function SurajStudioBillingERP() {
     }
   };
 
+  const handleAddSubEvent = () => {
+    if (!subEventName.trim()) return;
+    const newSub: SubEvent = {
+      name: subEventName,
+      date: subEventDate || eventDate,
+      time: subEventTime,
+      venue: subEventVenue || venue,
+      crewName: subEventCrew || "Studio Team",
+      crewPhone: subEventCrewPhone,
+    };
+    setSubEvents([...subEvents, newSub]);
+    setSubEventName("");
+    setSubEventCrew("");
+    setSubEventCrewPhone("");
+  };
+
+  const toggleGiftItem = (gift: string) => {
+    if (giftsChecklist.includes(gift)) {
+      setGiftsChecklist(giftsChecklist.filter((g) => g !== gift));
+    } else {
+      setGiftsChecklist([...giftsChecklist, gift]);
+    }
+  };
+
   const handleResetForm = () => {
     setEditId(null);
     setDocType("INVOICE");
@@ -700,6 +943,13 @@ export default function SurajStudioBillingERP() {
     setAdvancePaid(0);
     setPaymentLogs([]);
     setNotes("");
+    setHddLabel("");
+    setFolderPath("");
+    setDataSizeGb("");
+    setIncludedSheets(40);
+    setActualSheets(40);
+    setGiftsChecklist(["Photo Frame 12x18"]);
+    setSubEvents([]);
   };
 
   const handleWhatsAppShare = (b: Booking) => {
@@ -728,7 +978,7 @@ export default function SurajStudioBillingERP() {
     window.open(`https://wa.me/${num}?text=${msg}`, "_blank");
   };
 
-  // --- 100% CLEAN SINGLE-PAGE A4 PRINT / PDF FUNCTION (NO WEBSITE OVERLAP) ---
+  // --- 100% CLEAN SINGLE-PAGE A4 PRINT / PDF FUNCTION ---
   const handlePrintCleanInvoice = () => {
     const printElement = document.getElementById("printable-invoice-area");
     if (!printElement) return;
@@ -790,6 +1040,7 @@ export default function SurajStudioBillingERP() {
       "Event",
       "Date",
       "Stage",
+      "HDD Backup",
       "Total Amount",
       "Advance Paid",
       "Balance Due",
@@ -804,6 +1055,7 @@ export default function SurajStudioBillingERP() {
         `"${b.eventType}"`,
         b.eventDate,
         b.stage,
+        `"${b.hddLabel || "-"}"`,
         t.grandTotal,
         b.advancePaid,
         t.balanceDue,
@@ -828,13 +1080,15 @@ export default function SurajStudioBillingERP() {
       category: expCategory,
       date: expDate,
       amount: Number(expAmount),
+      totalAgreed: Number(expTotalAgreed) || Number(expAmount),
       paidTo: expPaidTo,
     };
     saveExpensesToStorage([newExp, ...expenses]);
     setExpTitle("");
     setExpAmount("");
+    setExpTotalAgreed("");
     setExpPaidTo("");
-    showToastMsg("✅ Expense recorded!");
+    showToastMsg("✅ Expense & Khata recorded!");
   };
 
   const handleAddGear = (e: React.FormEvent) => {
@@ -851,6 +1105,44 @@ export default function SurajStudioBillingERP() {
     setGearName("");
     setGearAssignedTo("");
     showToastMsg("✅ Gear added to inventory!");
+  };
+
+  const handleAddLead = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!leadName || !leadPhone) return;
+    const newLead: LeadInquiry = {
+      id: "LEAD-" + Date.now(),
+      clientName: leadName,
+      phone: leadPhone,
+      eventType: leadEvent,
+      eventDate: leadDate,
+      budget: Number(leadBudget) || 25000,
+      status: "New Inquiry",
+      notes: leadNotes,
+    };
+    saveLeadsToStorage([newLead, ...leads]);
+    setLeadName("");
+    setLeadPhone("");
+    setLeadBudget("");
+    setLeadNotes("");
+    showToastMsg("✅ Inquiry Lead Saved!");
+  };
+
+  const handleConvertLeadToQuote = (lead: LeadInquiry) => {
+    handleResetForm();
+    setDocType("ESTIMATE");
+    setClientName(lead.clientName);
+    setPhone(lead.phone);
+    setEventType(lead.eventType);
+    setEventDate(lead.eventDate);
+    setItems([{ desc: lead.eventType, qty: 1, rate: lead.budget || 25000 }]);
+    setNotes(lead.notes);
+    const updatedLeads = leads.map((l) =>
+      l.id === lead.id ? { ...l, status: "Converted" as const } : l
+    );
+    saveLeadsToStorage(updatedLeads);
+    setActiveTab("billing");
+    showToastMsg("📝 Lead loaded into Quotation Builder!");
   };
 
   // UPI QR URL for Live Invoice Preview
@@ -916,7 +1208,7 @@ export default function SurajStudioBillingERP() {
             </div>
             <div>
               <h1 className="font-bold text-sm text-white leading-tight">{studioName}</h1>
-              <p className="text-[11px] text-amber-400">Complete Studio ERP</p>
+              <p className="text-[11px] text-amber-400">Ultimate Studio ERP</p>
             </div>
           </div>
 
@@ -955,7 +1247,18 @@ export default function SurajStudioBillingERP() {
                   : "text-zinc-400 hover:bg-zinc-800"
               }`}
             >
-              🎬 Shoots & Delivery Pipeline
+              🎬 Shoots & HDD Backup
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("calendar")}
+              className={`px-3.5 py-2.5 rounded-xl text-xs font-semibold text-left transition ${
+                activeTab === "calendar"
+                  ? "bg-amber-600 text-white"
+                  : "text-zinc-400 hover:bg-zinc-800"
+              }`}
+            >
+              📅 Shoot Calendar & Crew
             </button>
             <button
               type="button"
@@ -966,7 +1269,18 @@ export default function SurajStudioBillingERP() {
                   : "text-zinc-400 hover:bg-zinc-800"
               }`}
             >
-              🧾 Invoice & Quotation Builder
+              🧾 Invoice & Quote Builder
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("leads")}
+              className={`px-3.5 py-2.5 rounded-xl text-xs font-semibold text-left transition ${
+                activeTab === "leads"
+                  ? "bg-amber-600 text-white"
+                  : "text-zinc-400 hover:bg-zinc-800"
+              }`}
+            >
+              📞 Inquiry & Leads ({leads.length})
             </button>
             <button
               type="button"
@@ -977,7 +1291,7 @@ export default function SurajStudioBillingERP() {
                   : "text-zinc-400 hover:bg-zinc-800"
               }`}
             >
-              💸 Expenses & Lab Payouts
+              💸 Expenses & Lab Khata
             </button>
             <button
               type="button"
@@ -999,7 +1313,7 @@ export default function SurajStudioBillingERP() {
                   : "text-zinc-400 hover:bg-zinc-800"
               }`}
             >
-              ⚙️ Studio Settings & UPI
+              ⚙️ Settings & Cloud Backup
             </button>
           </nav>
         </div>
@@ -1011,6 +1325,13 @@ export default function SurajStudioBillingERP() {
             className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 py-2 rounded-lg text-xs font-semibold transition"
           >
             📥 Export Excel (CSV)
+          </button>
+          <button
+            type="button"
+            onClick={handleDownloadFullBackup}
+            className="w-full bg-sky-600/20 hover:bg-sky-600 text-sky-400 hover:text-white py-2 rounded-lg text-xs font-semibold transition"
+          >
+            ☁️ Download Full Backup
           </button>
           <button
             type="button"
@@ -1260,7 +1581,7 @@ export default function SurajStudioBillingERP() {
                 <h3 className="font-bold text-sm">All Invoices & Quotations ({bookings.length})</h3>
                 <input
                   type="text"
-                  placeholder="Search client ya phone..."
+                  placeholder="Search client, phone ya HDD..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs"
@@ -1274,7 +1595,7 @@ export default function SurajStudioBillingERP() {
                       <th className="pb-3">ID / Type</th>
                       <th className="pb-3">Client</th>
                       <th className="pb-3">Event & Date</th>
-                      <th className="pb-3">Stage</th>
+                      <th className="pb-3">Stage & HDD</th>
                       <th className="pb-3">Total</th>
                       <th className="pb-3">Paid</th>
                       <th className="pb-3">Balance Due</th>
@@ -1287,10 +1608,12 @@ export default function SurajStudioBillingERP() {
                         (b) =>
                           b.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           b.phone.includes(searchQuery) ||
-                          b.id.toLowerCase().includes(searchQuery.toLowerCase())
+                          b.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (b.hddLabel && b.hddLabel.toLowerCase().includes(searchQuery.toLowerCase()))
                       )
                       .map((b) => {
                         const t = calcBookingTotals(b);
+                        const isClash = dateCounts[b.eventDate] > 1;
                         return (
                           <tr key={b.id} className="hover:bg-zinc-800/40">
                             <td className="py-3 font-mono">
@@ -1310,12 +1633,24 @@ export default function SurajStudioBillingERP() {
                             </td>
                             <td className="py-3">
                               {b.eventType}
-                              <div className="text-[11px] text-zinc-500">📅 {b.eventDate}</div>
+                              <div className="text-[11px] text-zinc-500 flex items-center gap-1">
+                                <span>📅 {b.eventDate}</span>
+                                {isClash && (
+                                  <span className="bg-rose-500/20 text-rose-400 px-1.5 rounded text-[9px] font-bold">
+                                    ⚠️ Same Date Clash
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="py-3">
                               <span className="bg-zinc-800 px-2.5 py-1 rounded-full text-[11px]">
                                 {b.stage}
                               </span>
+                              {b.hddLabel && (
+                                <div className="text-[10px] text-sky-400 mt-1">
+                                  💾 {b.hddLabel}
+                                </div>
+                              )}
                             </td>
                             <td className="py-3 font-semibold">
                               ₹{t.grandTotal.toLocaleString("en-IN")}
@@ -1332,7 +1667,6 @@ export default function SurajStudioBillingERP() {
                                   type="button"
                                   onClick={() => handleConvertEstimateToInvoice(b)}
                                   className="bg-purple-600/20 text-purple-300 px-2 py-1 rounded-lg hover:bg-purple-600 hover:text-white transition"
-                                  title="Convert Estimate to Final Invoice"
                                 >
                                   Convert to Bill
                                 </button>
@@ -1369,14 +1703,14 @@ export default function SurajStudioBillingERP() {
           </div>
         )}
 
-        {/* TAB 2: SHOOTS & DELIVERY PIPELINE */}
+        {/* TAB 2: SHOOTS, HDD BACKUP & DELIVERY PIPELINE */}
         {activeTab === "pipeline" && (
           <div className="space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <h2 className="text-xl font-bold">Shoots & Album Delivery Pipeline</h2>
+                <h2 className="text-xl font-bold">Shoots, Hard Disk Backup & Delivery Pipeline</h2>
                 <p className="text-xs text-zinc-400">
-                  Har wedding aur shoot ka live editing/album status aur Google Drive link (Stage change par Auto-QR Reminder)
+                  Har shoot ka live status, Hard Disk number, Album Sheets aur Complimentary Gifts track karein
                 </p>
               </div>
               <div className="flex gap-2">
@@ -1396,7 +1730,7 @@ export default function SurajStudioBillingERP() {
                 </select>
                 <input
                   type="text"
-                  placeholder="Search client..."
+                  placeholder="Search client ya HDD..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-xs"
@@ -1410,7 +1744,8 @@ export default function SurajStudioBillingERP() {
                 .filter(
                   (b) =>
                     b.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    b.phone.includes(searchQuery)
+                    b.phone.includes(searchQuery) ||
+                    (b.hddLabel && b.hddLabel.toLowerCase().includes(searchQuery.toLowerCase()))
                 )
                 .map((b) => {
                   const t = calcBookingTotals(b);
@@ -1420,7 +1755,7 @@ export default function SurajStudioBillingERP() {
                       className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4"
                     >
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="text-xs font-mono text-amber-400 font-bold">
                             {b.id}
                           </span>
@@ -1428,11 +1763,33 @@ export default function SurajStudioBillingERP() {
                           {b.venue && (
                             <span className="text-xs text-zinc-400">• 📍 {b.venue}</span>
                           )}
+                          {b.hddLabel && (
+                            <span className="bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded text-[10px] font-semibold">
+                              💾 {b.hddLabel} {b.dataSizeGb ? `(${b.dataSizeGb})` : ""}
+                            </span>
+                          )}
                         </div>
                         <h3 className="font-bold text-base">{b.clientName}</h3>
                         <p className="text-xs text-zinc-400">
                           {b.eventType} • 📞 {b.phone}
                         </p>
+                        {b.folderPath && (
+                          <p className="text-[11px] text-zinc-500 font-mono">
+                            📁 Folder: {b.folderPath}
+                          </p>
+                        )}
+                        {b.giftsChecklist && b.giftsChecklist.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {b.giftsChecklist.map((g, i) => (
+                              <span
+                                key={i}
+                                className="bg-emerald-950/60 border border-emerald-800/50 text-emerald-300 text-[10px] px-2 py-0.5 rounded"
+                              >
+                                🎁 {g}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         {b.driveLink && (
                           <a
                             href={b.driveLink}
@@ -1493,6 +1850,106 @@ export default function SurajStudioBillingERP() {
                           Bill Kholein
                         </button>
                       </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
+
+        {/* NEW TAB: SHOOT CALENDAR & CREW DUTY SHEET */}
+        {activeTab === "calendar" && (
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold">📅 Multi-Event Shoot Calendar & Crew Duty</h2>
+                <p className="text-xs text-zinc-400">
+                  Date-wise bookings, Double-Booking clash alerts aur Cameraman WhatsApp Duty Sheet
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  handleResetForm();
+                  setActiveTab("billing");
+                }}
+                className="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-semibold"
+              >
+                + Add New Booking Schedule
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {[...bookings]
+                .sort((a, b) => a.eventDate.localeCompare(b.eventDate))
+                .map((b) => {
+                  const isClash = dateCounts[b.eventDate] > 1;
+                  return (
+                    <div
+                      key={b.id}
+                      className={`bg-zinc-900 border p-5 rounded-2xl space-y-3 ${
+                        isClash ? "border-rose-600/70" : "border-zinc-800"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="bg-amber-500/20 text-amber-400 font-mono text-xs px-2 py-0.5 rounded font-bold">
+                              📅 {b.eventDate}
+                            </span>
+                            {isClash && (
+                              <span className="bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
+                                ⚠️ DOUBLE BOOKING DATE CLASH ({dateCounts[b.eventDate]} Shoots on this day)
+                              </span>
+                            )}
+                          </div>
+                          <h3 className="text-base font-bold mt-1">
+                            {b.clientName} — {b.eventType}
+                          </h3>
+                          <p className="text-xs text-zinc-400">
+                            📍 Main Venue: {b.venue || "Not set"} • 📞 {b.phone}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleLoadBooking(b)}
+                          className="bg-zinc-800 hover:bg-zinc-700 text-xs px-3 py-2 rounded-xl font-semibold"
+                        >
+                          ✏️ Manage Functions & Crew
+                        </button>
+                      </div>
+
+                      {b.subEvents && b.subEvents.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-2 border-t border-zinc-800">
+                          {b.subEvents.map((ev, i) => (
+                            <div
+                              key={i}
+                              className="bg-zinc-950 border border-zinc-800 p-3 rounded-xl flex items-center justify-between text-xs"
+                            >
+                              <div>
+                                <p className="font-bold text-amber-400">
+                                  {ev.name} ({ev.date} • {ev.time})
+                                </p>
+                                <p className="text-zinc-400">
+                                  📍 {ev.venue} • 🎥 Crew: <strong>{ev.crewName}</strong>
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleSendCrewWhatsAppDuty(b, ev)}
+                                className="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white px-2.5 py-1.5 rounded-lg text-[11px] font-semibold"
+                              >
+                                📲 Crew WhatsApp
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-zinc-500">
+                          No sub-functions added yet (Click &quot;Manage Functions & Crew&quot; to add Haldi/Baraat/Drone crew).
+                        </p>
+                      )}
                     </div>
                   );
                 })}
@@ -1673,6 +2130,176 @@ export default function SurajStudioBillingERP() {
                   ))}
                 </div>
 
+                {/* Extra Album Sheet Calculator */}
+                <div className="bg-zinc-950 border border-zinc-800 p-3 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-amber-400">
+                      📖 Album Sheet & Extra Charge Calculator
+                    </span>
+                    {extraSheetsCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleAddExtraSheetsToBill}
+                        className="bg-amber-600/20 hover:bg-amber-600 text-amber-300 hover:text-white px-2 py-0.5 rounded text-[10px] font-bold"
+                      >
+                        + Add ₹{extraSheetsCost} to Bill
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div>
+                      <label className="text-[10px] text-zinc-400">Pkg Sheets</label>
+                      <input
+                        type="number"
+                        value={includedSheets}
+                        onChange={(e) => setIncludedSheets(Number(e.target.value))}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-zinc-400">Actual Printed</label>
+                      <input
+                        type="number"
+                        value={actualSheets}
+                        onChange={(e) => setActualSheets(Number(e.target.value))}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-zinc-400">₹ / Extra Sheet</label>
+                      <input
+                        type="number"
+                        value={extraSheetRate}
+                        onChange={(e) => setExtraSheetRate(Number(e.target.value))}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hard Disk & Raw Data Backup Tracker */}
+                <div className="bg-zinc-950 border border-zinc-800 p-3 rounded-xl space-y-2">
+                  <span className="text-[11px] font-semibold text-sky-400 block">
+                    💾 Hard Disk & Raw Data Backup Location
+                  </span>
+                  <div className="grid grid-cols-3 gap-1.5 text-xs">
+                    <input
+                      type="text"
+                      placeholder="Disk (e.g. HDD #4)"
+                      value={hddLabel}
+                      onChange={(e) => setHddLabel(e.target.value)}
+                      className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Folder Path"
+                      value={folderPath}
+                      onChange={(e) => setFolderPath(e.target.value)}
+                      className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Size (e.g. 180 GB)"
+                      value={dataSizeGb}
+                      onChange={(e) => setDataSizeGb(e.target.value)}
+                      className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1"
+                    />
+                  </div>
+                </div>
+
+                {/* Complimentary Gifts Checklist */}
+                <div className="bg-zinc-950 border border-zinc-800 p-3 rounded-xl space-y-2">
+                  <span className="text-[11px] font-semibold text-emerald-400 block">
+                    🎁 Complimentary Gifts Included (Prints on Bill):
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {DEFAULT_GIFTS.map((gift) => {
+                      const active = giftsChecklist.includes(gift);
+                      return (
+                        <button
+                          key={gift}
+                          type="button"
+                          onClick={() => toggleGiftItem(gift)}
+                          className={`text-[10px] px-2.5 py-1 rounded-lg border transition ${
+                            active
+                              ? "bg-emerald-600/30 border-emerald-500 text-emerald-200 font-bold"
+                              : "bg-zinc-900 border-zinc-800 text-zinc-400"
+                          }`}
+                        >
+                          {active ? "✓ " : "+ "} {gift}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Multi-Event Crew Schedule Adder */}
+                <div className="bg-zinc-950 border border-zinc-800 p-3 rounded-xl space-y-2">
+                  <span className="text-[11px] font-semibold text-purple-400 block">
+                    🎬 Sub-Functions & Crew Assignment (Haldi/Baraat/Drone)
+                  </span>
+                  <div className="grid grid-cols-2 gap-1.5 text-xs">
+                    <input
+                      type="text"
+                      placeholder="Function (e.g. Haldi / Baraat)"
+                      value={subEventName}
+                      onChange={(e) => setSubEventName(e.target.value)}
+                      className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Time (e.g. 7:00 PM)"
+                      value={subEventTime}
+                      onChange={(e) => setSubEventTime(e.target.value)}
+                      className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Crew Name (e.g. Aman Candid)"
+                      value={subEventCrew}
+                      onChange={(e) => setSubEventCrew(e.target.value)}
+                      className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1"
+                    />
+                    <input
+                      type="tel"
+                      placeholder="Crew WhatsApp No."
+                      value={subEventCrewPhone}
+                      onChange={(e) => setSubEventCrewPhone(e.target.value)}
+                      className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddSubEvent}
+                    className="w-full bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white py-1 rounded-lg text-xs font-semibold"
+                  >
+                    + Add Function & Crew
+                  </button>
+                  {subEvents.length > 0 && (
+                    <div className="space-y-1 pt-1 text-[11px]">
+                      {subEvents.map((ev, idx) => (
+                        <div
+                          key={idx}
+                          className="flex justify-between items-center bg-zinc-900 px-2 py-1 rounded"
+                        >
+                          <span>
+                            {ev.name} ({ev.time}) — 🎥 {ev.crewName}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSubEvents(subEvents.filter((_, i) => i !== idx))
+                            }
+                            className="text-rose-400 font-bold"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {/* Taxes, Discount & Advance */}
                 <div className="grid grid-cols-3 gap-2 pt-2 border-t border-zinc-800">
                   <div>
@@ -1744,7 +2371,6 @@ export default function SurajStudioBillingERP() {
                     + Add to Paid Amount
                   </button>
 
-                  {/* Show added installments in form with delete option */}
                   {paymentLogs.length > 0 && (
                     <div className="pt-2 space-y-1 border-t border-zinc-800/80 text-[11px]">
                       {paymentLogs.map((log, index) => (
@@ -1763,7 +2389,6 @@ export default function SurajStudioBillingERP() {
                               type="button"
                               onClick={() => handleRemoveInstallment(index)}
                               className="text-rose-400 hover:text-rose-300 font-bold"
-                              title="Remove installment"
                             >
                               ×
                             </button>
@@ -1776,7 +2401,7 @@ export default function SurajStudioBillingERP() {
 
                 <input
                   type="text"
-                  placeholder="Special Note (e.g. 2 Acrylic Frames Complimentary)"
+                  placeholder="Special Note (e.g. Deliver reel within 5 days)"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs"
@@ -1842,10 +2467,13 @@ export default function SurajStudioBillingERP() {
                   <p className="text-zinc-500 font-semibold">EVENT & STATUS:</p>
                   <p className="font-bold text-sm mt-0.5">{eventType}</p>
                   <p className="text-amber-700 font-semibold">Stage: {stage}</p>
+                  <p className="text-zinc-600 text-[11px]">
+                    Album: {actualSheets}/{includedSheets} Sheets
+                  </p>
                 </div>
               </div>
 
-              <table className="w-full text-left text-xs mb-5">
+              <table className="w-full text-left text-xs mb-4">
                 <thead>
                   <tr className="border-b-2 border-zinc-300 text-zinc-600">
                     <th className="py-2">#</th>
@@ -1871,6 +2499,14 @@ export default function SurajStudioBillingERP() {
                   ))}
                 </tbody>
               </table>
+
+              {/* Complimentary Gifts & Sub-Events on Bill */}
+              {giftsChecklist.length > 0 && (
+                <div className="mb-3 bg-zinc-50 border border-zinc-200 px-3 py-2 rounded-lg text-[11px]">
+                  <span className="font-bold text-zinc-700">🎁 Complimentary Deliverables: </span>
+                  <span className="text-zinc-600">{giftsChecklist.join(" • ")}</span>
+                </div>
+              )}
 
               {notes && (
                 <p className="text-xs italic text-zinc-600 mb-4">
@@ -1956,15 +2592,131 @@ export default function SurajStudioBillingERP() {
           </div>
         )}
 
-        {/* TAB 4: STUDIO EXPENSES */}
+        {/* NEW TAB: INQUIRY & LEADS FOLLOW-UP CRM */}
+        {activeTab === "leads" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl h-fit">
+              <h3 className="font-bold text-base mb-4">📞 Add Walk-in / Call Inquiry</h3>
+              <form onSubmit={handleAddLead} className="space-y-3 text-xs">
+                <input
+                  type="text"
+                  placeholder="Client Name *"
+                  value={leadName}
+                  onChange={(e) => setLeadName(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5"
+                  required
+                />
+                <input
+                  type="tel"
+                  placeholder="WhatsApp Phone *"
+                  value={leadPhone}
+                  onChange={(e) => setLeadPhone(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5"
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Event Interested (e.g. Wedding + Drone)"
+                  value={leadEvent}
+                  onChange={(e) => setLeadEvent(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={leadDate}
+                    onChange={(e) => setLeadDate(e.target.value)}
+                    className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Approx Budget (₹)"
+                    value={leadBudget}
+                    onChange={(e) => setLeadBudget(e.target.value)}
+                    className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5"
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Follow-up Note (e.g. Call on Sunday)"
+                  value={leadNotes}
+                  onChange={(e) => setLeadNotes(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5"
+                />
+                <button
+                  type="submit"
+                  className="w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2.5 rounded-xl"
+                >
+                  + Save Inquiry Lead
+                </button>
+              </form>
+            </div>
+
+            <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 p-5 rounded-2xl">
+              <h3 className="font-bold text-base mb-4">Inquiry Follow-up List ({leads.length})</h3>
+              <div className="space-y-3 text-xs">
+                {leads.map((lead) => (
+                  <div
+                    key={lead.id}
+                    className="bg-zinc-950 border border-zinc-800 p-4 rounded-xl flex flex-wrap items-center justify-between gap-3"
+                  >
+                    <div>
+                      <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded font-bold">
+                        {lead.status} • 📅 {lead.eventDate}
+                      </span>
+                      <h4 className="font-bold text-sm mt-1">{lead.clientName}</h4>
+                      <p className="text-zinc-400">
+                        📞 {lead.phone} • {lead.eventType} • Est. ₹
+                        {lead.budget.toLocaleString("en-IN")}
+                      </p>
+                      {lead.notes && <p className="text-zinc-500 mt-0.5">📝 {lead.notes}</p>}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const clean = lead.phone.replace(/\D/g, "");
+                          const num = clean.length === 10 ? "91" + clean : clean;
+                          const msg = `Namaste *${lead.clientName}* ji 🙏,\n*${studioName}* mein sampark karne ke liye dhanyawad! Aapke *${lead.eventType}* (${lead.eventDate}) ke liye hamare paas best packages uplabdh hain. Bataiye kab baat kar sakte hain? 📸`;
+                          window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, "_blank");
+                        }}
+                        className="bg-emerald-600/20 text-emerald-400 px-3 py-1.5 rounded-lg font-semibold"
+                      >
+                        📲 Follow-up WhatsApp
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleConvertLeadToQuote(lead)}
+                        className="bg-amber-600 text-white px-3 py-1.5 rounded-lg font-semibold"
+                      >
+                        🧾 Make Quotation
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          saveLeadsToStorage(leads.filter((item) => item.id !== lead.id))
+                        }
+                        className="text-rose-400 px-2"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: STUDIO EXPENSES & FREELANCER/LAB KHATA */}
         {activeTab === "expenses" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl h-fit">
-              <h3 className="font-bold text-base mb-4">Add Studio / Lab Expense</h3>
+              <h3 className="font-bold text-base mb-4">Add Expense / Freelancer Khata</h3>
               <form onSubmit={handleAddExpense} className="space-y-3 text-xs">
                 <input
                   type="text"
-                  placeholder="Expense Title (e.g. Priya Wedding Album Print)"
+                  placeholder="Work / Expense Title (e.g. Priya Album Print)"
                   value={expTitle}
                   onChange={(e) => setExpTitle(e.target.value)}
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5"
@@ -1972,7 +2724,7 @@ export default function SurajStudioBillingERP() {
                 />
                 <input
                   type="text"
-                  placeholder="Paid To (e.g. Color Lab Sagar / Drone Pilot)"
+                  placeholder="Person / Lab Name (e.g. Color Lab Sagar / Aman Drone)"
                   value={expPaidTo}
                   onChange={(e) => setExpPaidTo(e.target.value)}
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5"
@@ -1994,53 +2746,75 @@ export default function SurajStudioBillingERP() {
                   onChange={(e) => setExpDate(e.target.value)}
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5"
                 />
-                <input
-                  type="number"
-                  placeholder="Amount (₹)"
-                  value={expAmount}
-                  onChange={(e) => setExpAmount(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5"
-                  required
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    placeholder="Total Agreed (₹)"
+                    value={expTotalAgreed}
+                    onChange={(e) => setExpTotalAgreed(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Amount Paid Now (₹) *"
+                    value={expAmount}
+                    onChange={(e) => setExpAmount(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5"
+                    required
+                  />
+                </div>
                 <button
                   type="submit"
                   className="w-full bg-rose-600 hover:bg-rose-500 text-white font-semibold py-2.5 rounded-xl"
                 >
-                  + Record Expense
+                  + Record Expense / Payout
                 </button>
               </form>
             </div>
 
             <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 p-5 rounded-2xl">
-              <h3 className="font-bold text-base mb-4">Expense & Payout History</h3>
+              <h3 className="font-bold text-base mb-4">Expense & Freelancer/Lab Khata History</h3>
               <div className="space-y-2 text-xs">
-                {expenses.map((ex) => (
-                  <div
-                    key={ex.id}
-                    className="flex items-center justify-between bg-zinc-950 p-3.5 rounded-xl border border-zinc-800"
-                  >
-                    <div>
-                      <p className="font-bold text-sm">{ex.title}</p>
-                      <p className="text-zinc-400">
-                        {ex.category} {ex.paidTo ? `• Paid to: ${ex.paidTo}` : ""} • 📅 {ex.date}
-                      </p>
+                {expenses.map((ex) => {
+                  const pendingToPay = Math.max(
+                    0,
+                    (Number(ex.totalAgreed) || Number(ex.amount)) - Number(ex.amount)
+                  );
+                  return (
+                    <div
+                      key={ex.id}
+                      className="flex flex-wrap items-center justify-between bg-zinc-950 p-3.5 rounded-xl border border-zinc-800 gap-2"
+                    >
+                      <div>
+                        <p className="font-bold text-sm">{ex.title}</p>
+                        <p className="text-zinc-400">
+                          {ex.category} {ex.paidTo ? `• 👤 ${ex.paidTo}` : ""} • 📅 {ex.date}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <span className="font-bold text-rose-400 text-sm block">
+                            Paid: ₹{ex.amount.toLocaleString("en-IN")}
+                          </span>
+                          {pendingToPay > 0 && (
+                            <span className="text-[11px] text-amber-400 font-semibold">
+                              Baki Dena Hai: ₹{pendingToPay.toLocaleString("en-IN")}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            saveExpensesToStorage(expenses.filter((i) => i.id !== ex.id))
+                          }
+                          className="text-zinc-500 hover:text-rose-400"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className="font-bold text-rose-400 text-sm">
-                        - ₹{ex.amount.toLocaleString("en-IN")}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          saveExpensesToStorage(expenses.filter((i) => i.id !== ex.id))
-                        }
-                        className="text-zinc-500 hover:text-rose-400"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -2135,10 +2909,10 @@ export default function SurajStudioBillingERP() {
           </div>
         )}
 
-        {/* TAB 6: STUDIO SETTINGS */}
+        {/* TAB 6: STUDIO SETTINGS & CLOUD JSON BACKUP */}
         {activeTab === "settings" && (
           <div className="max-w-xl bg-zinc-900 border border-zinc-800 p-6 rounded-2xl space-y-4 text-xs">
-            <h3 className="font-bold text-base">Studio Bill Header, UPI & WhatsApp Settings</h3>
+            <h3 className="font-bold text-base">Studio Bill Header, UPI & Backup Settings</h3>
             <div>
               <label className="text-zinc-400 block mb-1">Studio Name</label>
               <input
@@ -2229,14 +3003,39 @@ export default function SurajStudioBillingERP() {
               />
             </div>
 
+            {/* Full Backup & Restore (PC <-> Phone Sync) */}
+            <div className="p-4 bg-sky-950/30 border border-sky-800/60 rounded-xl space-y-3">
+              <h4 className="font-bold text-sky-400 text-sm">
+                ☁️ 1-Click Full Studio Backup & Restore (PC ➔ Mobile Transfer)
+              </h4>
+              <p className="text-[11px] text-zinc-400">
+                Apne computer se poora data download karein aur phone mein Restore karke dono jagah same data chalayein:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadFullBackup}
+                  className="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-xl font-semibold"
+                >
+                  📥 Download Full Backup (.json)
+                </button>
+                <label className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-4 py-2 rounded-xl font-semibold cursor-pointer">
+                  📤 Restore Backup File
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleRestoreFullBackup}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+
             {/* Optional Background WhatsApp API Box */}
             <div className="p-4 bg-emerald-950/30 border border-emerald-800/60 rounded-xl space-y-3">
               <h4 className="font-bold text-emerald-400 text-sm">
                 🤖 Optional: Background WhatsApp API (UltraMsg / WATI / Webhook)
               </h4>
-              <p className="text-[11px] text-zinc-400">
-                Agar aap bina WhatsApp tab khole background mein automatic message bhejna chahte hain, toh apna Webhook URL yahan daalein (Khali chhodne par Free WhatsApp Direct chalega):
-              </p>
               <input
                 type="text"
                 placeholder="https://api.ultramsg.com/instanceXXXX/messages/chat (Optional)"
