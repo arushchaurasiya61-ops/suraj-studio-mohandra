@@ -78,80 +78,62 @@ export default async function EventGallery({
     );
   }
 
-  // Load active photos
-  const { data: photos, error: photoError } = await db()
-    .from("photos")
-    .select(
-      "id,public_photo_code,file_name"
-    )
-    .eq("event_id", event.id)
-    .eq("active", true)
-    .order("created_at", {
-      ascending: false,
-    })
-    .limit(200);
+  // Load ALL active photos (1148+ ya kitni bhi photos hon) using batch range
+  const allPhotos: any[] = [];
+  const batchSize = 1000;
+  let from = 0;
 
-  if (photoError) {
-    throw new Error(photoError.message);
+  while (true) {
+    const { data: batch, error: photoError } = await db()
+      .from("photos")
+      .select("id,public_photo_code,file_name")
+      .eq("event_id", event.id)
+      .eq("active", true)
+      .order("created_at", {
+        ascending: false,
+      })
+      .range(from, from + batchSize - 1);
+
+    if (photoError) {
+      throw new Error(photoError.message);
+    }
+
+    if (!batch || batch.length === 0) {
+      break;
+    }
+
+    allPhotos.push(...batch);
+
+    if (batch.length < batchSize) {
+      break;
+    }
+
+    from += batchSize;
   }
 
   return (
     <GalleryClient
       event={{
-  id: event.id,
-
-  eventName:
-    event.event_name || "Event Gallery",
-
-  eventCode:
-    event.event_code || "",
-
-  brideName:
-    event.bride_name || "",
-
-  groomName:
-    event.groom_name || "",
-
-  clientName:
-    event.client_name || "",
-
-  eventDate:
-    event.event_date || "",
-
-  eventType:
-    event.event_type || "",
-
-  location:
-    event.location || "",
-
-  description:
-    event.description || "",
-
-  allowPhotoSharing:
-    event.allow_photo_sharing !== false,
-
-  allowGallerySharing:
-    event.allow_gallery_sharing !== false,
-
-  allowOptimizedDownload:
-    event.allow_optimized_download === true,
-
-  passwordProtected:
-    event.password_protected === true,
-}}
-      photos={(photos || []).map(
-        (photo: any) => ({
-          id: photo.id,
-
-          publicPhotoCode:
-            photo.public_photo_code ||
-            photo.id,
-
-          fileName:
-            photo.file_name ||
-            "Photo",
-        })
-      )}
+        id: event.id,
+        eventName: event.event_name || "Event Gallery",
+        eventCode: event.event_code || "",
+        brideName: event.bride_name || "",
+        groomName: event.groom_name || "",
+        clientName: event.client_name || "",
+        eventDate: event.event_date || "",
+        eventType: event.event_type || "",
+        location: event.location || "",
+        description: event.description || "",
+        allowPhotoSharing: event.allow_photo_sharing !== false,
+        allowGallerySharing: event.allow_gallery_sharing !== false,
+        allowOptimizedDownload: event.allow_optimized_download === true,
+        passwordProtected: event.password_protected === true,
+      }}
+      photos={allPhotos.map((photo: any) => ({
+        id: photo.id,
+        publicPhotoCode: photo.public_photo_code || photo.id,
+        fileName: photo.file_name || "Photo",
+      }))}
     />
   );
 }
